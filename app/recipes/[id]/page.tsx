@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { supabase } from '../../../src/lib/supabase'
+import { supabase } from '../../lib/supabase'
 
 export default function RecipePage() {
   const { id } = useParams()
