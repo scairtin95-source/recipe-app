@@ -9,6 +9,7 @@ export default function Home() {
   const [ingredients, setIngredients] = useState('')
   const [steps, setSteps] = useState('')
   const [tags, setTags] = useState('')
+  const [image, setImage] = useState('')
   const [parsing, setParsing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -25,6 +26,7 @@ export default function Home() {
     if (data.title) setTitle(data.title)
     if (data.ingredients) setIngredients(data.ingredients)
     if (data.steps) setSteps(data.steps)
+    if (data.image) setImage(data.image)
     setMessage('')
     setParsing(false)
   }
@@ -34,12 +36,12 @@ export default function Home() {
     setSaving(true)
     const { error } = await supabase
       .from('recipes')
-      .insert([{ title, ingredients, steps, tags, source_url: url }])
+      .insert([{ title, ingredients, steps, tags, source_url: url, image }])
     if (error) {
       setMessage('Error saving: ' + error.message)
     } else {
       setMessage('Recipe saved!')
-      setUrl(''); setTitle(''); setIngredients(''); setSteps(''); setTags('')
+      setUrl(''); setTitle(''); setIngredients(''); setSteps(''); setTags(''); setImage('')
     }
     setSaving(false)
   }
@@ -56,6 +58,7 @@ export default function Home() {
           style={{ padding: '0.5rem', fontSize: '1rem', cursor: 'pointer' }}>
           {parsing ? 'Parsing...' : 'Parse Recipe'}
         </button>
+        {image && <img src={image} alt="Recipe" style={{ width: '100%', borderRadius: '8px' }} />}
         <input type="text" placeholder="Title" value={title}
           onChange={(e) => setTitle(e.target.value)}
           style={{ padding: '0.5rem', fontSize: '1rem' }} />

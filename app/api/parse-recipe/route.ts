@@ -10,6 +10,7 @@ interface ParsedRecipe {
   title: string
   ingredients: string[]
   steps: string[]
+  image: string | null
 }
 
 export async function POST(request: NextRequest) {
@@ -55,10 +56,21 @@ export async function POST(request: NextRequest) {
     // 2. Try to find a Recipe object in JSON-LD structured data first
     const fromJsonLd = extractRecipeFromJsonLd(html)
     if (fromJsonLd) {
+      // JSON-LD recipes sometimes omit "image" even when a good one exists
+      // elsewhere on the page, so fall back to meta/img scanning if needed.
+      if (!fromJsonLd.image) {
+        fromJsonLd.image = extractFallbackImage(html, parsedUrl)
+      } else {
+        fromJsonLd.image = resolveUrl(fromJsonLd.image, parsedUrl)
+      }
       return NextResponse.json(fromJsonLd)
     }
 
-    // 3. Fall back to Claude extraction from cleaned visible HTML
+    // 3. Fall back to Claude extraction from cleaned visible HTML for
+    // title/ingredients/steps, but resolve the image ourselves from the
+    // raw HTML (og:image / first large <img>) rather than asking the model.
+    const image = extractFallbackImage(html, parsedUrl)
+
     const cleanedHtml = html
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -96,7 +108,7 @@ ${cleanedHtml}`,
 
     const raw = textBlock.text.trim().replace(/^```json\s*|```$/g, '')
 
-    let parsed: ParsedRecipe
+    let parsed: Omit<ParsedRecipe, 'image'>
     try {
       parsed = JSON.parse(raw)
     } catch {
@@ -114,7 +126,7 @@ ${cleanedHtml}`,
       )
     }
 
-    return NextResponse.json(parsed)
+    return NextResponse.json({ ...parsed, image })
   } catch (err) {
     console.error('parse-recipe error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -124,7 +136,7 @@ ${cleanedHtml}`,
 /**
  * Scans all <script type="application/ld+json"> blocks on the page for a
  * schema.org Recipe object (handles @graph wrappers and arrays of objects
- * too) and normalizes it into { title, ingredients, steps }.
+ * too) and normalizes it into { title, ingredients, steps, image }.
  * Returns null if no usable Recipe JSON-LD is found.
  */
 function extractRecipeFromJsonLd(html: string): ParsedRecipe | null {
@@ -182,9 +194,10 @@ function findRecipeNode(node: unknown): Record<string, unknown> | null {
 }
 
 /**
- * Converts a schema.org Recipe node into { title, ingredients, steps }.
+ * Converts a schema.org Recipe node into { title, ingredients, steps, image }.
  * Handles the common variations in how sites encode instructions
- * (plain strings, HowToStep objects, HowToSection groups).
+ * (plain strings, HowToStep objects, HowToSection groups) and images
+ * (plain string, array of strings, single ImageObject, array of ImageObjects).
  */
 function normalizeRecipeNode(node: Record<string, unknown>): ParsedRecipe | null {
   const title = typeof node.name === 'string' ? node.name : ''
@@ -196,13 +209,42 @@ function normalizeRecipeNode(node: Record<string, unknown>): ParsedRecipe | null
     : []
 
   const steps = extractInstructionSteps(node.recipeInstructions)
+  const image = extractJsonLdImage(node.image)
 
   // Require at least a title or some ingredients/steps to consider this a real hit
   if (!title && ingredients.length === 0 && steps.length === 0) {
     return null
   }
 
-  return { title, ingredients, steps }
+  return { title, ingredients, steps, image }
+}
+
+/**
+ * schema.org "image" is inconsistent across sites: it can be a plain URL
+ * string, an array of URL strings, a single ImageObject ({ "@type":
+ * "ImageObject", "url": "..." }), or an array of ImageObjects. This pulls
+ * the first usable URL out of any of those shapes.
+ */
+function extractJsonLdImage(image: unknown): string | null {
+  if (typeof image === 'string') {
+    return image.trim() || null
+  }
+
+  if (Array.isArray(image)) {
+    for (const item of image) {
+      const url = extractJsonLdImage(item)
+      if (url) return url
+    }
+    return null
+  }
+
+  if (image && typeof image === 'object') {
+    const obj = image as Record<string, unknown>
+    if (typeof obj.url === 'string') return obj.url.trim() || null
+    if (typeof obj['@id'] === 'string') return obj['@id'].trim() || null
+  }
+
+  return null
 }
 
 function extractInstructionSteps(instructions: unknown): string[] {
@@ -239,6 +281,67 @@ function extractInstructionSteps(instructions: unknown): string[] {
   }
 
   return []
+}
+
+/**
+ * Fallback image discovery when JSON-LD has no usable image: checks
+ * og:image / twitter:image meta tags first (most reliable signal for a
+ * page's "main" image), then falls back to the first sufficiently large
+ * <img> tag in the body as a last resort.
+ */
+function extractFallbackImage(html: string, pageUrl: URL): string | null {
+  const metaPatterns = [
+    /<meta[^>]+property=["']og:image(?::url)?["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::url)?["']/i,
+    /<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image(?::src)?["']/i,
+  ]
+
+  for (const pattern of metaPatterns) {
+    const match = html.match(pattern)
+    if (match?.[1]) {
+      return resolveUrl(match[1], pageUrl)
+    }
+  }
+
+  // Last resort: scan <img> tags for one that looks like real content
+  // (has width/height attributes above a small icon threshold, or is
+  // simply the first <img> with a src if no sizing info is present).
+  const imgTags = [...html.matchAll(/<img\b[^>]*>/gi)].map((m) => m[0])
+
+  for (const tag of imgTags) {
+    const srcMatch = tag.match(/\bsrc=["']([^"']+)["']/i)
+    if (!srcMatch) continue
+
+    const src = srcMatch[1]
+    // Skip obvious non-content images
+    if (/\b(logo|icon|sprite|avatar|pixel|spacer|tracking)\b/i.test(src)) continue
+
+    const widthMatch = tag.match(/\bwidth=["']?(\d+)/i)
+    const heightMatch = tag.match(/\bheight=["']?(\d+)/i)
+    const width = widthMatch ? parseInt(widthMatch[1], 10) : null
+    const height = heightMatch ? parseInt(heightMatch[1], 10) : null
+
+    // If sizing is present, require it to be reasonably large (skip icons/thumbnails)
+    if (width !== null && width < 200) continue
+    if (height !== null && height < 200) continue
+
+    return resolveUrl(src, pageUrl)
+  }
+
+  return null
+}
+
+/**
+ * Resolves a possibly-relative image URL against the page's URL, and
+ * leaves already-absolute URLs untouched.
+ */
+function resolveUrl(maybeRelativeUrl: string, pageUrl: URL): string | null {
+  try {
+    return new URL(maybeRelativeUrl, pageUrl).toString()
+  } catch {
+    return null
+  }
 }
 
 function stripHtmlTags(input: string): string {
