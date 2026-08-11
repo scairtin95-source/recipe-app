@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '../../../src/lib/supabase'
+import CookingMode from './CookingMode'
 
 
 const COLORS = {
@@ -42,6 +43,7 @@ export default function RecipePage() {
   const [collections, setCollections] = useState<{ id: number; name: string }[]>([])
   const [selectedCollection, setSelectedCollection] = useState('')
   const [addStatus, setAddStatus] = useState('')
+  const [cookingMode, setCookingMode] = useState(false)
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -161,6 +163,19 @@ export default function RecipePage() {
           )}
         </div>
 
+        <button
+          onClick={() => setCookingMode(true)}
+          style={{
+            display: 'block', width: '100%', padding: '0.85rem',
+            borderRadius: 999, border: 'none', background: COLORS.primary,
+            color: '#fff', fontSize: '0.95rem', fontWeight: 600,
+            cursor: 'pointer', fontFamily: 'var(--font-manrope)',
+            marginBottom: '1.5rem'
+          }}
+        >
+          Start Cooking Mode
+        </button>
+
         {/* Tags */}
         {tagList(recipe.tags).length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1.5rem' }}>
@@ -241,6 +256,16 @@ export default function RecipePage() {
 
         </div>
       </main>
+
+      {cookingMode && (
+        <CookingMode
+          title={recipe.title}
+          image={recipe.image}
+          ingredients={ingredients}
+          steps={steps}
+          onClose={() => setCookingMode(false)}
+        />
+      )}
     </div>
   )
 }
