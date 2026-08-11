@@ -24,6 +24,12 @@ const COLORS = {
   neutral: '#FDF8F5',
 }
 
+const CUISINE_TAGS = ['spanish', 'italian', 'french', 'mediterranean', 'mexican', 'indian', 'romanian']
+const COURSE_TAGS = ['dinner', 'soup', 'pasta', 'salad', 'appetizer', 'breakfast', 'dessert']
+const STYLE_TAGS = ['vegetarian', 'healthy', 'quick', 'seafood']
+
+const CARD_COLORS = ['#b5543a', '#9d5a4a', '#7a8a3f', '#c9a876', '#6b5d8a', '#5c614d', '#8f5a3c']
+
 export default function RecipesPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -65,14 +71,6 @@ export default function RecipesPage() {
     return tags.split(',').map((t) => t.trim()).filter(Boolean)
   }
 
-  const allTags = useMemo(() => {
-    const tagSet = new Set<string>()
-    recipes.forEach((recipe) => {
-      tagList(recipe.tags).forEach((tag) => tagSet.add(tag))
-    })
-    return Array.from(tagSet).sort()
-  }, [recipes])
-
   function toggleTag(tag: string) {
     setActiveTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
@@ -82,6 +80,39 @@ export default function RecipesPage() {
   function clearTags() {
     setActiveTags([])
   }
+
+  // Finds a representative image for a given tag — first recipe that has
+  // that tag (case-insensitive) and an image.
+  function imageForTag(tag: string): string | null {
+    const match = recipes.find((r) =>
+      tagList(r.tags).some((t) => t.toLowerCase() === tag.toLowerCase()) && r.image
+    )
+    return match?.image ?? null
+  }
+
+  function countForTag(tag: string): number {
+    return recipes.filter((r) =>
+      tagList(r.tags).some((t) => t.toLowerCase() === tag.toLowerCase())
+    ).length
+  }
+
+  const cuisineCards = useMemo(
+    () => CUISINE_TAGS.map((tag) => ({ tag, image: imageForTag(tag), count: countForTag(tag) }))
+      .filter((c) => c.count > 0),
+    [recipes]
+  )
+
+  const courseCards = useMemo(
+    () => COURSE_TAGS.map((tag) => ({ tag, image: imageForTag(tag), count: countForTag(tag) }))
+      .filter((c) => c.count > 0),
+    [recipes]
+  )
+
+  const styleCards = useMemo(
+    () => STYLE_TAGS.map((tag) => ({ tag, count: countForTag(tag) }))
+      .filter((c) => c.count > 0),
+    [recipes]
+  )
 
   const filteredRecipes = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -125,37 +156,126 @@ export default function RecipesPage() {
           style={{
             width: '100%', padding: '0.75rem 1.1rem', fontSize: '1rem',
             border: '1.5px solid #e5ddd3', borderRadius: 12,
-            marginBottom: '1rem', background: '#fff',
+            marginBottom: '1.5rem', background: '#fff',
             outline: 'none', boxSizing: 'border-box',
             fontFamily: 'var(--font-manrope)', color: '#2c2c2c'
           }}
         />
 
-        {allTags.length > 0 && (
-          <div style={{ marginBottom: '2rem' }}>
-            <div style={{
-              display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center'
+        {/* Cuisine cards */}
+        {cuisineCards.length > 0 && (
+          <div style={{ marginBottom: '1.75rem' }}>
+            <p style={{
+              fontSize: '0.7rem', fontWeight: 600, color: COLORS.tertiary,
+              textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.6rem'
             }}>
-              {allTags.map((tag) => {
-                const isActive = activeTags.includes(tag)
+              Cuisine
+            </p>
+            <div style={{ display: 'flex', gap: '0.6rem', overflowX: 'auto', paddingBottom: '4px' }}>
+              {cuisineCards.map((c, i) => {
+                const isActive = activeTags.includes(c.tag)
                 return (
                   <button
-                    key={tag}
-                    onClick={() => toggleTag(tag)}
+                    key={c.tag}
+                    onClick={() => toggleTag(c.tag)}
                     style={{
-                      fontSize: '0.8rem',
-                      padding: '0.35rem 0.9rem',
-                      borderRadius: 999,
-                      border: isActive ? `1.5px solid ${COLORS.primary}` : '1.5px solid #e5ddd3',
-                      background: isActive ? COLORS.primary : '#fff',
-                      color: isActive ? '#fff' : COLORS.secondary,
-                      fontFamily: 'var(--font-manrope)',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      transition: 'background 0.15s, color 0.15s, border-color 0.15s'
+                      minWidth: 130, height: 140, borderRadius: 14, position: 'relative',
+                      overflow: 'hidden', flexShrink: 0, border: isActive ? `2.5px solid ${COLORS.primary}` : 'none',
+                      cursor: 'pointer', padding: 0, background: CARD_COLORS[i % CARD_COLORS.length]
                     }}
                   >
-                    {tag}
+                    {c.image && (
+                      <img src={c.image} alt={c.tag} style={{
+                        position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover'
+                      }} />
+                    )}
+                    <div style={{
+                      position: 'absolute', inset: 0,
+                      background: 'linear-gradient(transparent 40%, rgba(0,0,0,0.65))'
+                    }} />
+                    <div style={{ position: 'absolute', bottom: 10, left: 12, right: 12, textAlign: 'left' }}>
+                      <p style={{ color: '#fdf8f5', fontSize: '0.95rem', fontWeight: 600, margin: 0, textTransform: 'capitalize' }}>
+                        {c.tag}
+                      </p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Course cards */}
+        {courseCards.length > 0 && (
+          <div style={{ marginBottom: '1.75rem' }}>
+            <p style={{
+              fontSize: '0.7rem', fontWeight: 600, color: COLORS.tertiary,
+              textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.6rem'
+            }}>
+              Course
+            </p>
+            <div style={{ display: 'flex', gap: '0.6rem', overflowX: 'auto', paddingBottom: '4px' }}>
+              {courseCards.map((c, i) => {
+                const isActive = activeTags.includes(c.tag)
+                return (
+                  <button
+                    key={c.tag}
+                    onClick={() => toggleTag(c.tag)}
+                    style={{
+                      minWidth: 105, height: 105, borderRadius: 14, position: 'relative',
+                      overflow: 'hidden', flexShrink: 0, border: isActive ? `2.5px solid ${COLORS.primary}` : 'none',
+                      cursor: 'pointer', padding: 0, background: CARD_COLORS[(i + 3) % CARD_COLORS.length]
+                    }}
+                  >
+                    {c.image && (
+                      <img src={c.image} alt={c.tag} style={{
+                        position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover'
+                      }} />
+                    )}
+                    <div style={{
+                      position: 'absolute', inset: 0,
+                      background: 'linear-gradient(transparent 40%, rgba(0,0,0,0.6))'
+                    }} />
+                    <p style={{
+                      position: 'absolute', bottom: 8, left: 10, color: '#fdf8f5',
+                      fontSize: '0.8rem', fontWeight: 600, margin: 0, textTransform: 'capitalize'
+                    }}>
+                      {c.tag}
+                    </p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Style pills */}
+        {styleCards.length > 0 && (
+          <div style={{ marginBottom: '2rem' }}>
+            <p style={{
+              fontSize: '0.7rem', fontWeight: 600, color: COLORS.tertiary,
+              textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.6rem'
+            }}>
+              Style
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+              {styleCards.map((c, i) => {
+                const isActive = activeTags.includes(c.tag)
+                return (
+                  <button
+                    key={c.tag}
+                    onClick={() => toggleTag(c.tag)}
+                    style={{
+                      padding: '0.5rem 1.1rem', borderRadius: 999, border: 'none',
+                      background: CARD_COLORS[i % CARD_COLORS.length], color: '#fdf8f5',
+                      fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
+                      textTransform: 'capitalize',
+                      opacity: isActive ? 1 : 0.75,
+                      outline: isActive ? `2.5px solid ${COLORS.primary}` : 'none',
+                      outlineOffset: '2px'
+                    }}
+                  >
+                    {c.tag} · {c.count}
                   </button>
                 )
               })}
@@ -163,15 +283,9 @@ export default function RecipesPage() {
                 <button
                   onClick={clearTags}
                   style={{
-                    fontSize: '0.8rem',
-                    padding: '0.35rem 0.9rem',
-                    borderRadius: 999,
-                    border: 'none',
-                    background: 'transparent',
-                    color: COLORS.primary,
-                    fontFamily: 'var(--font-manrope)',
-                    fontWeight: 600,
-                    cursor: 'pointer',
+                    fontSize: '0.8rem', padding: '0.35rem 0.9rem', borderRadius: 999,
+                    border: 'none', background: 'transparent', color: COLORS.primary,
+                    fontFamily: 'var(--font-manrope)', fontWeight: 600, cursor: 'pointer',
                     textDecoration: 'underline'
                   }}
                 >
@@ -256,7 +370,6 @@ export default function RecipesPage() {
                   </div>
                 </Link>
 
-                {/* Quick add-to-collection icon */}
                 <button
                   onClick={(e) => {
                     e.preventDefault()
