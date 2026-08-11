@@ -84,10 +84,15 @@ export default function RecipesPage() {
   // Finds a representative image for a given tag — first recipe that has
   // that tag (case-insensitive) and an image.
   function imageForTag(tag: string): string | null {
-    const match = recipes.find((r) =>
+    const matches = recipes.filter((r) =>
       tagList(r.tags).some((t) => t.toLowerCase() === tag.toLowerCase()) && r.image
     )
-    return match?.image ?? null
+    if (matches.length === 0) return null
+
+    // Prefer stable image hosts over Instagram's CDN, whose signed URLs
+    // expire after a while and would otherwise show as broken images.
+    const stable = matches.find((r) => !r.image!.includes('cdninstagram.com'))
+    return (stable ?? matches[0]).image
   }
 
   function countForTag(tag: string): number {
@@ -185,9 +190,14 @@ export default function RecipesPage() {
                     }}
                   >
                     {c.image && (
-                      <img src={c.image} alt={c.tag} style={{
-                        position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover'
-                      }} />
+                      <img
+                        src={c.image}
+                        alt={c.tag}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                        style={{
+                          position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover'
+                        }}
+                      />
                     )}
                     <div style={{
                       position: 'absolute', inset: 0,
@@ -228,9 +238,14 @@ export default function RecipesPage() {
                     }}
                   >
                     {c.image && (
-                      <img src={c.image} alt={c.tag} style={{
-                        position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover'
-                      }} />
+                      <img
+                        src={c.image}
+                        alt={c.tag}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                        style={{
+                          position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover'
+                        }}
+                      />
                     )}
                     <div style={{
                       position: 'absolute', inset: 0,
