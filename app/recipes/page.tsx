@@ -12,6 +12,13 @@ interface Recipe {
   image: string | null
 }
 
+const COLORS = {
+  primary: '#9D3D2E',
+  secondary: '#5C614D',
+  tertiary: '#765A05',
+  neutral: '#FDF8F5',
+}
+
 export default function RecipesPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -79,23 +86,30 @@ export default function RecipesPage() {
   }, [recipes, searchQuery, activeTags])
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f5f0', fontFamily: 'Georgia, serif' }}>
+    <div style={{ minHeight: '100vh', background: COLORS.neutral, fontFamily: 'var(--font-manrope)' }}>
 
       <header style={{
-        background: '#7c8c6e',
-        padding: '1rem 2rem',
+        background: COLORS.secondary,
+        padding: '1.25rem 2rem',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center'
       }}>
-        <h1 style={{ color: '#f7f5f0', fontSize: '1.4rem', fontWeight: 700, margin: 0, letterSpacing: '0.02em' }}>
-          🍴 My Recipes
+        <h1 style={{
+          color: COLORS.neutral,
+          fontSize: '1.6rem',
+          fontWeight: 600,
+          margin: 0,
+          letterSpacing: '0.01em',
+          fontFamily: 'var(--font-newsreader)'
+        }}>
+          The Olive Table
         </h1>
         <Link href="/" style={{
-          background: '#b85c3a', color: '#fff',
-          padding: '0.5rem 1.2rem', borderRadius: 999,
+          background: COLORS.primary, color: '#fff',
+          padding: '0.55rem 1.3rem', borderRadius: 999,
           textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600,
-          fontFamily: 'system-ui, sans-serif'
+          fontFamily: 'var(--font-manrope)'
         }}>
           + Add Recipe
         </Link>
@@ -109,11 +123,11 @@ export default function RecipesPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search recipes or tags…"
           style={{
-            width: '100%', padding: '0.75rem 1rem', fontSize: '1rem',
-            border: '1.5px solid #ddd8ce', borderRadius: 10,
+            width: '100%', padding: '0.75rem 1.1rem', fontSize: '1rem',
+            border: '1.5px solid #e5ddd3', borderRadius: 12,
             marginBottom: '1rem', background: '#fff',
             outline: 'none', boxSizing: 'border-box',
-            fontFamily: 'system-ui, sans-serif', color: '#2c2c2c'
+            fontFamily: 'var(--font-manrope)', color: '#2c2c2c'
           }}
         />
 
@@ -132,10 +146,10 @@ export default function RecipesPage() {
                       fontSize: '0.8rem',
                       padding: '0.35rem 0.9rem',
                       borderRadius: 999,
-                      border: isActive ? '1.5px solid #7c8c6e' : '1.5px solid #e0dbd2',
-                      background: isActive ? '#7c8c6e' : '#fff',
-                      color: isActive ? '#fff' : '#5a6b4a',
-                      fontFamily: 'system-ui, sans-serif',
+                      border: isActive ? `1.5px solid ${COLORS.primary}` : '1.5px solid #e5ddd3',
+                      background: isActive ? COLORS.primary : '#fff',
+                      color: isActive ? '#fff' : COLORS.secondary,
+                      fontFamily: 'var(--font-manrope)',
                       fontWeight: 500,
                       cursor: 'pointer',
                       transition: 'background 0.15s, color 0.15s, border-color 0.15s'
@@ -154,8 +168,8 @@ export default function RecipesPage() {
                     borderRadius: 999,
                     border: 'none',
                     background: 'transparent',
-                    color: '#b85c3a',
-                    fontFamily: 'system-ui, sans-serif',
+                    color: COLORS.primary,
+                    fontFamily: 'var(--font-manrope)',
                     fontWeight: 600,
                     cursor: 'pointer',
                     textDecoration: 'underline'
@@ -168,13 +182,13 @@ export default function RecipesPage() {
           </div>
         )}
 
-        {isLoading && <p style={{ color: '#888', textAlign: 'center', padding: '3rem' }}>Loading your recipes…</p>}
-        {error && <p style={{ color: '#b91c1c' }}>Failed to load recipes: {error}</p>}
+        {isLoading && <p style={{ color: '#8a8378', textAlign: 'center', padding: '3rem', fontFamily: 'var(--font-manrope)' }}>Loading your recipes…</p>}
+        {error && <p style={{ color: COLORS.primary }}>Failed to load recipes: {error}</p>}
         {!isLoading && !error && recipes.length === 0 && (
-          <p style={{ color: '#888', textAlign: 'center', padding: '3rem' }}>No recipes saved yet. Add your first one!</p>
+          <p style={{ color: '#8a8378', textAlign: 'center', padding: '3rem', fontFamily: 'var(--font-manrope)' }}>No recipes saved yet. Add your first one!</p>
         )}
         {!isLoading && !error && recipes.length > 0 && filteredRecipes.length === 0 && (
-          <p style={{ color: '#888', textAlign: 'center' }}>
+          <p style={{ color: '#8a8378', textAlign: 'center', fontFamily: 'var(--font-manrope)' }}>
             No recipes match{searchQuery ? ` "${searchQuery}"` : ''}{activeTags.length > 0 ? ` with the selected tags` : ''}.
           </p>
         )}
@@ -189,37 +203,37 @@ export default function RecipesPage() {
               <Link key={recipe.id} href={`/recipes/${recipe.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                 <div
                   style={{
-                    background: '#fff', borderRadius: 14, overflow: 'hidden',
-                    border: '1px solid #e0dbd2',
+                    background: '#fff', borderRadius: 16, overflow: 'hidden',
+                    border: '1px solid #eee3d8',
                     transition: 'transform 0.2s, box-shadow 0.2s',
                     cursor: 'pointer'
                   }}
                   onMouseEnter={e => {
                     (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-4px)'
-                    ;(e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)'
+                    ;(e.currentTarget as HTMLDivElement).style.boxShadow = '0 10px 28px rgba(93,54,30,0.12)'
                   }}
                   onMouseLeave={e => {
                     (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'
                     ;(e.currentTarget as HTMLDivElement).style.boxShadow = 'none'
                   }}
                 >
-                  <div style={{ width: '100%', height: 180, background: '#ede9e2', overflow: 'hidden' }}>
+                  <div style={{ width: '100%', height: 180, background: '#f1e9dd', overflow: 'hidden' }}>
                     {recipe.image ? (
                       <img src={recipe.image} alt={recipe.title}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem' }}>
-                        🍽️
+                        🫒
                       </div>
                     )}
                   </div>
 
-                  <div style={{ padding: '1rem' }}>
+                  <div style={{ padding: '1.1rem' }}>
                     <h2 style={{
-                      fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem', margin: '0 0 0.5rem',
+                      fontSize: '1.15rem', fontWeight: 600, marginBottom: '0.5rem', margin: '0 0 0.5rem',
                       overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box',
                       WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                      fontFamily: 'Georgia, serif', color: '#2c2c2c'
+                      fontFamily: 'var(--font-newsreader)', color: '#2c2c2c'
                     }}>
                       {recipe.title || 'Untitled recipe'}
                     </h2>
@@ -228,9 +242,9 @@ export default function RecipesPage() {
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.6rem' }}>
                         {tagList(recipe.tags).map((tag, index) => (
                           <span key={index} style={{
-                            fontSize: '0.7rem', padding: '0.2rem 0.6rem', borderRadius: 999,
-                            background: '#e8e3da', color: '#5a6b4a',
-                            fontFamily: 'system-ui, sans-serif', fontWeight: 500
+                            fontSize: '0.7rem', padding: '0.2rem 0.65rem', borderRadius: 999,
+                            background: '#efe6d8', color: COLORS.tertiary,
+                            fontFamily: 'var(--font-manrope)', fontWeight: 500
                           }}>
                             {tag}
                           </span>

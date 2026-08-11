@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { supabase } from '../../lib/supabase'
+import { supabase } from '../../../src/lib/supabase'
+
+const COLORS = {
+  primary: '#9D3D2E',
+  secondary: '#5C614D',
+  tertiary: '#765A05',
+  neutral: '#FDF8F5',
+}
 
 function parseList(raw: string | null): string[] {
   if (!raw) return []
@@ -45,8 +52,8 @@ export default function RecipePage() {
   }, [id])
 
   if (!recipe) return (
-    <div style={{ minHeight: '100vh', background: '#f7f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: '#888', fontFamily: 'Georgia, serif' }}>Loading…</p>
+    <div style={{ minHeight: '100vh', background: COLORS.neutral, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <p style={{ color: '#8a8378', fontFamily: 'var(--font-manrope)' }}>Loading…</p>
     </div>
   )
 
@@ -54,43 +61,46 @@ export default function RecipePage() {
   const steps = parseList(recipe.steps)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f5f0', fontFamily: 'Georgia, serif' }}>
+    <div style={{ minHeight: '100vh', background: COLORS.neutral, fontFamily: 'var(--font-manrope)' }}>
 
       {/* Header */}
       <header style={{
-        background: '#7c8c6e', padding: '1rem 2rem',
+        background: COLORS.secondary, padding: '1.25rem 2rem',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center'
       }}>
         <a href="/recipes" style={{
-          color: '#f7f5f0', textDecoration: 'none', fontSize: '0.95rem',
-          fontFamily: 'system-ui, sans-serif'
+          color: COLORS.neutral, textDecoration: 'none', fontSize: '0.95rem',
+          fontFamily: 'var(--font-manrope)'
         }}>
           ← Back to recipes
         </a>
         {recipe.source_url && (
           <a href={recipe.source_url} target="_blank" style={{
-            background: '#b85c3a', color: '#fff',
-            padding: '0.4rem 1rem', borderRadius: 999,
+            background: COLORS.primary, color: '#fff',
+            padding: '0.4rem 1.1rem', borderRadius: 999,
             textDecoration: 'none', fontSize: '0.85rem',
-            fontFamily: 'system-ui, sans-serif'
+            fontFamily: 'var(--font-manrope)'
           }}>
             View original ↗
           </a>
         )}
       </header>
 
-      <main style={{ maxWidth: 780, margin: '0 auto', padding: '2rem 1rem' }}>
+      <main style={{ maxWidth: 780, margin: '0 auto', padding: '2.5rem 1rem' }}>
 
         {/* Image — contained, not full width */}
         {recipe.image && (
-          <div style={{ width: '100%', height: 280, overflow: 'hidden', borderRadius: 16, marginBottom: '1.5rem', border: '1px solid #e0dbd2' }}>
+          <div style={{ width: '100%', height: 280, overflow: 'hidden', borderRadius: 16, marginBottom: '1.5rem', border: '1px solid #eee3d8' }}>
             <img src={recipe.image} alt={recipe.title}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
         )}
 
         {/* Title */}
-        <h1 style={{ fontSize: '1.8rem', fontWeight: 700, color: '#2c2c2c', marginBottom: '0.75rem', lineHeight: 1.3 }}>
+        <h1 style={{
+          fontSize: '2rem', fontWeight: 600, color: '#2c2c2c', marginBottom: '0.75rem', lineHeight: 1.3,
+          fontFamily: 'var(--font-newsreader)'
+        }}>
           {recipe.title}
         </h1>
 
@@ -100,8 +110,8 @@ export default function RecipePage() {
             {tagList(recipe.tags).map((tag, i) => (
               <span key={i} style={{
                 fontSize: '0.8rem', padding: '0.25rem 0.75rem', borderRadius: 999,
-                background: '#e8e3da', color: '#5a6b4a',
-                fontFamily: 'system-ui, sans-serif', fontWeight: 500
+                background: '#efe6d8', color: COLORS.tertiary,
+                fontFamily: 'var(--font-manrope)', fontWeight: 500
               }}>
                 {tag}
               </span>
@@ -110,15 +120,15 @@ export default function RecipePage() {
         )}
 
         {/* Units toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem', fontFamily: 'system-ui, sans-serif' }}>
-          <span style={{ fontSize: '0.85rem', color: '#5a6b4a', fontWeight: 500 }}>Units:</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem', fontFamily: 'var(--font-manrope)' }}>
+          <span style={{ fontSize: '0.85rem', color: COLORS.secondary, fontWeight: 500 }}>Units:</span>
           <button
             onClick={() => setImperial(false)}
             style={{
               padding: '0.3rem 0.9rem', borderRadius: 999, border: 'none', cursor: 'pointer',
               fontSize: '0.85rem', fontWeight: 500,
-              background: !imperial ? '#7c8c6e' : '#e8e3da',
-              color: !imperial ? '#fff' : '#5a6b4a'
+              background: !imperial ? COLORS.secondary : '#efe6d8',
+              color: !imperial ? '#fff' : COLORS.secondary
             }}>
             Metric
           </button>
@@ -127,8 +137,8 @@ export default function RecipePage() {
             style={{
               padding: '0.3rem 0.9rem', borderRadius: 999, border: 'none', cursor: 'pointer',
               fontSize: '0.85rem', fontWeight: 500,
-              background: imperial ? '#7c8c6e' : '#e8e3da',
-              color: imperial ? '#fff' : '#5a6b4a'
+              background: imperial ? COLORS.secondary : '#efe6d8',
+              color: imperial ? '#fff' : COLORS.secondary
             }}>
             Imperial
           </button>
@@ -137,11 +147,11 @@ export default function RecipePage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1.5rem' }}>
 
           {/* Ingredients */}
-          <div style={{ background: '#fff', borderRadius: 14, padding: '1.5rem', border: '1px solid #e0dbd2' }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', border: '1px solid #eee3d8' }}>
             <h2 style={{
-              fontSize: '0.85rem', fontWeight: 600, color: '#7c8c6e',
+              fontSize: '0.85rem', fontWeight: 600, color: COLORS.tertiary,
               textTransform: 'uppercase', letterSpacing: '0.08em',
-              marginBottom: '1rem', fontFamily: 'system-ui, sans-serif', margin: '0 0 1rem'
+              marginBottom: '1rem', fontFamily: 'var(--font-manrope)', margin: '0 0 1rem'
             }}>
               Ingredients
             </h2>
@@ -150,25 +160,25 @@ export default function RecipePage() {
                 <li key={i} style={{ fontSize: '0.9rem', color: '#3c3c3c', lineHeight: 1.8, marginBottom: '0.25rem' }}>
                   {imperial ? convertToImperial(item) : item}
                 </li>
-              )) : <li style={{ color: '#888', fontSize: '0.9rem' }}>No ingredients saved.</li>}
+              )) : <li style={{ color: '#8a8378', fontSize: '0.9rem' }}>No ingredients saved.</li>}
             </ul>
           </div>
 
           {/* Method */}
-          <div style={{ background: '#fff', borderRadius: 14, padding: '1.5rem', border: '1px solid #e0dbd2' }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', border: '1px solid #eee3d8' }}>
             <h2 style={{
-              fontSize: '0.85rem', fontWeight: 600, color: '#7c8c6e',
+              fontSize: '0.85rem', fontWeight: 600, color: COLORS.tertiary,
               textTransform: 'uppercase', letterSpacing: '0.08em',
-              marginBottom: '1rem', fontFamily: 'system-ui, sans-serif', margin: '0 0 1rem'
+              marginBottom: '1rem', fontFamily: 'var(--font-manrope)', margin: '0 0 1rem'
             }}>
               Method
             </h2>
-            <ol style={{ margin: 0, padding: '0 0 0 1.5rem', listStyleType: 'decimal'  }}>
+            <ol style={{ margin: 0, padding: '0 0 0 1.5rem', listStyleType: 'decimal' }}>
               {steps.length > 0 ? steps.map((step, i) => (
                 <li key={i} style={{ fontSize: '0.9rem', color: '#3c3c3c', lineHeight: 1.8, marginBottom: '0.75rem' }}>
                   {imperial ? convertToImperial(step) : step}
                 </li>
-              )) : <li style={{ color: '#888', fontSize: '0.9rem' }}>No steps saved.</li>}
+              )) : <li style={{ color: '#8a8378', fontSize: '0.9rem' }}>No steps saved.</li>}
             </ol>
           </div>
 
