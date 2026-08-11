@@ -63,7 +63,8 @@ export async function POST(request: NextRequest) {
       } else {
         fromJsonLd.image = resolveUrl(fromJsonLd.image, parsedUrl)
       }
-      return NextResponse.json(fromJsonLd)
+      const translated = await translateIfNeeded(fromJsonLd)
+      return NextResponse.json({ ...translated, image: fromJsonLd.image })
     }
 
     // 3. Fall back to Claude extraction from cleaned visible HTML for
@@ -126,10 +127,64 @@ ${cleanedHtml}`,
       )
     }
 
-    return NextResponse.json({ ...parsed, image })
+    const translated = await translateIfNeeded(parsed)
+    return NextResponse.json({ ...translated, image })
   } catch (err) {
     console.error('parse-recipe error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+/**
+ * Detects the language of the parsed recipe and translates title,
+ * ingredients, and steps to English if needed. If already in English,
+ * or if translation fails for any reason, returns the input unchanged.
+ */
+async function translateIfNeeded(
+  parsed: Omit<ParsedRecipe, 'image'>
+): Promise<Omit<ParsedRecipe, 'image'>> {
+  if (!parsed.title && parsed.ingredients.length === 0 && parsed.steps.length === 0) {
+    return parsed
+  }
+
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-5',
+      max_tokens: 2000,
+      messages: [
+        {
+          role: 'user',
+          content: `You will be given a recipe's title, ingredients, and steps as JSON. If the text is already in English, return it completely unchanged. If it is in any other language, translate title, ingredients, and steps into natural, accurate English, keeping quantities/units as-is. Respond with ONLY a JSON object (no markdown fences, no commentary) matching exactly this shape:
+
+{
+  "title": string,
+  "ingredients": string[],
+  "steps": string[]
+}
+
+Input:
+${JSON.stringify(parsed)}`,
+        },
+      ],
+    })
+
+    const textBlock = message.content.find((block) => block.type === 'text')
+    if (!textBlock || textBlock.type !== 'text') return parsed
+
+    const raw = textBlock.text.trim().replace(/^```json\s*|```$/g, '')
+    const translated = JSON.parse(raw)
+
+    if (
+      typeof translated.title === 'string' &&
+      Array.isArray(translated.ingredients) &&
+      Array.isArray(translated.steps)
+    ) {
+      return translated
+    }
+    return parsed
+  } catch (err) {
+    console.error('translateIfNeeded error:', err)
+    return parsed
   }
 }
 

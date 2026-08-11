@@ -145,15 +145,29 @@ export default function Home() {
         </div>
 
         {mode === 'input' && (
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '2rem', fontSize: '0.85rem', color: '#8a8378' }}>
-            <span>Try:</span>
-            <span style={{ padding: '0.3rem 0.8rem', borderRadius: 999, background: '#fff', border: '1px solid #e5ddd3' }}>
-              a food blog link
-            </span>
-            <span style={{ padding: '0.3rem 0.8rem', borderRadius: 999, background: '#fff', border: '1px solid #e5ddd3' }}>
-              an Instagram caption
-            </span>
-          </div>
+          <>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem', fontSize: '0.85rem', color: '#8a8378' }}>
+              <span>Try:</span>
+              <span style={{ padding: '0.3rem 0.8rem', borderRadius: 999, background: '#fff', border: '1px solid #e5ddd3' }}>
+                a food blog link
+              </span>
+              <span style={{ padding: '0.3rem 0.8rem', borderRadius: 999, background: '#fff', border: '1px solid #e5ddd3' }}>
+                an Instagram caption
+              </span>
+            </div>
+            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+              <button
+                onClick={() => setMode('edit')}
+                style={{
+                  background: 'transparent', border: 'none', color: COLORS.primary,
+                  fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer',
+                  textDecoration: 'underline', fontFamily: 'var(--font-manrope)'
+                }}
+              >
+                Or enter a recipe manually →
+              </button>
+            </div>
+          </>
         )}
 
         {/* PREVIEW CARD */}
@@ -287,7 +301,7 @@ export default function Home() {
               }}>
                 {saving ? 'Saving…' : 'Save Recipe'}
               </button>
-              <button onClick={() => setMode('preview')} style={{
+              <button onClick={() => setMode(title || url ? 'preview' : 'input')} style={{
                 padding: '0.85rem 1.3rem', borderRadius: 999, border: '1.5px solid #d8cfc0',
                 background: '#fff', color: '#3c3c3c', fontSize: '0.95rem',
                 fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-manrope)'
