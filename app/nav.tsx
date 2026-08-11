@@ -46,6 +46,9 @@ export default function Nav() {
         <Link href="/recipes" style={linkStyle(pathname === '/recipes')}>
           All Recipes
         </Link>
+        <Link href="/collections" style={linkStyle(pathname === '/collections')}>
+          Collections
+        </Link>
         <Link href="/" style={{
           background: COLORS.primary,
           color: '#fff',

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '../../../src/lib/supabase'
 
+
 const COLORS = {
   primary: '#9D3D2E',
   secondary: '#5C614D',
@@ -38,6 +39,9 @@ export default function RecipePage() {
   const { id } = useParams()
   const [recipe, setRecipe] = useState<any>(null)
   const [imperial, setImperial] = useState(false)
+  const [collections, setCollections] = useState<{ id: number; name: string }[]>([])
+  const [selectedCollection, setSelectedCollection] = useState('')
+  const [addStatus, setAddStatus] = useState('')
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -51,6 +55,27 @@ export default function RecipePage() {
     fetchRecipe()
   }, [id])
 
+  useEffect(() => {
+    const fetchCollections = async () => {
+      const { data } = await supabase.from('collections').select('id, name').order('name')
+      if (data) setCollections(data)
+    }
+    fetchCollections()
+  }, [])
+
+  const addToCollection = async () => {
+    if (!selectedCollection || !recipe) return
+    const { error } = await supabase
+      .from('collection_recipes')
+      .insert([{ collection_id: Number(selectedCollection), recipe_id: recipe.id }])
+    if (error) {
+      setAddStatus('Error adding')
+    } else {
+      setAddStatus('Added!')
+      setSelectedCollection('')
+    }
+  }
+
   if (!recipe) return (
     <div style={{ minHeight: '100vh', background: COLORS.neutral, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <p style={{ color: '#8a8378', fontFamily: 'var(--font-manrope)' }}>Loading…</p>
@@ -63,8 +88,6 @@ export default function RecipePage() {
   return (
     <div style={{ minHeight: '100vh', background: COLORS.neutral, fontFamily: 'var(--font-manrope)' }}>
 
-
-
       <main style={{ maxWidth: 780, margin: '0 auto', padding: '2.5rem 1rem' }}>
 
         {/* Image — contained, not full width */}
@@ -76,28 +99,67 @@ export default function RecipePage() {
         )}
 
         {/* Title */}
-<h1 style={{
-  fontSize: '2rem', fontWeight: 600, color: '#2c2c2c', marginBottom: '0.5rem', lineHeight: 1.3,
-  fontFamily: 'var(--font-newsreader)'
-}}>
-  {recipe.title}
-</h1>
+        <h1 style={{
+          fontSize: '2rem', fontWeight: 600, color: '#2c2c2c', marginBottom: '0.5rem', lineHeight: 1.3,
+          fontFamily: 'var(--font-newsreader)'
+        }}>
+          {recipe.title}
+        </h1>
 
-{recipe.source_url && (
-  <a href={recipe.source_url} target="_blank" style={{
-    display: 'inline-block',
-    color: COLORS.primary,
-    textDecoration: 'none',
-    fontSize: '0.85rem',
-    fontFamily: 'var(--font-manrope)',
-    fontWeight: 600,
-    marginBottom: '1.25rem'
-  }}>
-    View original ↗
-  </a>
-)}
+        {recipe.source_url && (
+          <a href={recipe.source_url} target="_blank" style={{
+            display: 'inline-block',
+            color: COLORS.primary,
+            textDecoration: 'none',
+            fontSize: '0.85rem',
+            fontFamily: 'var(--font-manrope)',
+            fontWeight: 600,
+            marginBottom: '1rem'
+          }}>
+            View original ↗
+          </a>
+        )}
 
-{/* Tags */}
+        {/* Add to Collection */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem',
+          background: '#fff', border: '1px solid #eee3d8', borderRadius: 12, padding: '0.75rem 1rem'
+        }}>
+          <span style={{ fontSize: '0.85rem', color: COLORS.secondary, fontWeight: 600, whiteSpace: 'nowrap' }}>
+            Add to collection:
+          </span>
+          <select
+            value={selectedCollection}
+            onChange={(e) => setSelectedCollection(e.target.value)}
+            style={{
+              flex: 1, padding: '0.4rem 0.6rem', borderRadius: 8,
+              border: '1.5px solid #e5ddd3', fontFamily: 'var(--font-manrope)',
+              fontSize: '0.85rem', color: '#2c2c2c', background: '#fff'
+            }}
+          >
+            <option value="">Select a collection…</option>
+            {collections.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <button
+            onClick={addToCollection}
+            disabled={!selectedCollection}
+            style={{
+              padding: '0.4rem 1rem', borderRadius: 8, border: 'none',
+              background: COLORS.secondary, color: '#fff', fontSize: '0.85rem',
+              fontWeight: 600, cursor: selectedCollection ? 'pointer' : 'not-allowed',
+              opacity: selectedCollection ? 1 : 0.5, fontFamily: 'var(--font-manrope)'
+            }}
+          >
+            Add
+          </button>
+          {addStatus && (
+            <span style={{ fontSize: '0.8rem', color: COLORS.secondary, whiteSpace: 'nowrap' }}>
+              {addStatus}
+            </span>
+          )}
+        </div>
 
         {/* Tags */}
         {tagList(recipe.tags).length > 0 && (
