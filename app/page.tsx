@@ -100,24 +100,6 @@ export default function Home() {
   return (
     <div style={{ minHeight: '100vh', background: COLORS.neutral, fontFamily: 'var(--font-manrope)' }}>
 
-      {/* Header */}
-      <header style={{
-        background: COLORS.secondary, padding: '1.25rem 2rem',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-      }}>
-        <h1 style={{
-          color: COLORS.neutral, fontSize: '1.6rem', fontWeight: 600, margin: 0,
-          fontFamily: 'var(--font-newsreader)', letterSpacing: '0.01em'
-        }}>
-          The Olive Table
-        </h1>
-        <a href="/recipes" style={{
-          color: COLORS.neutral, textDecoration: 'none', fontSize: '0.9rem',
-          fontFamily: 'var(--font-manrope)'
-        }}>
-          View all recipes →
-        </a>
-      </header>
 
       <main style={{ maxWidth: 640, margin: '0 auto', padding: '3rem 1rem' }}>
 

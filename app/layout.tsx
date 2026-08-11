@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Newsreader, Manrope } from "next/font/google";
 import "./globals.css";
+import Nav from "./nav";
 
 const newsreader = Newsreader({
   variable: "--font-newsreader",
@@ -25,8 +26,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${newsreader.variable} ${manrope.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col" style={{ fontFamily: 'var(--font-manrope)' }}>
-        {children}
-      </body>
+  <Nav />
+  {children}
+</body>
     </html>
   );
 }

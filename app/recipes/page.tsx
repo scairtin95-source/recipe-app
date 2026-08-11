@@ -88,32 +88,7 @@ export default function RecipesPage() {
   return (
     <div style={{ minHeight: '100vh', background: COLORS.neutral, fontFamily: 'var(--font-manrope)' }}>
 
-      <header style={{
-        background: COLORS.secondary,
-        padding: '1.25rem 2rem',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <h1 style={{
-          color: COLORS.neutral,
-          fontSize: '1.6rem',
-          fontWeight: 600,
-          margin: 0,
-          letterSpacing: '0.01em',
-          fontFamily: 'var(--font-newsreader)'
-        }}>
-          The Olive Table
-        </h1>
-        <Link href="/" style={{
-          background: COLORS.primary, color: '#fff',
-          padding: '0.55rem 1.3rem', borderRadius: 999,
-          textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600,
-          fontFamily: 'var(--font-manrope)'
-        }}>
-          + Add Recipe
-        </Link>
-      </header>
+  
 
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: '2rem 1rem' }}>
 

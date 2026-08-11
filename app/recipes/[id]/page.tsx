@@ -63,28 +63,7 @@ export default function RecipePage() {
   return (
     <div style={{ minHeight: '100vh', background: COLORS.neutral, fontFamily: 'var(--font-manrope)' }}>
 
-      {/* Header */}
-      <header style={{
-        background: COLORS.secondary, padding: '1.25rem 2rem',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-      }}>
-        <a href="/recipes" style={{
-          color: COLORS.neutral, textDecoration: 'none', fontSize: '0.95rem',
-          fontFamily: 'var(--font-manrope)'
-        }}>
-          ← Back to recipes
-        </a>
-        {recipe.source_url && (
-          <a href={recipe.source_url} target="_blank" style={{
-            background: COLORS.primary, color: '#fff',
-            padding: '0.4rem 1.1rem', borderRadius: 999,
-            textDecoration: 'none', fontSize: '0.85rem',
-            fontFamily: 'var(--font-manrope)'
-          }}>
-            View original ↗
-          </a>
-        )}
-      </header>
+
 
       <main style={{ maxWidth: 780, margin: '0 auto', padding: '2.5rem 1rem' }}>
 
@@ -97,12 +76,28 @@ export default function RecipePage() {
         )}
 
         {/* Title */}
-        <h1 style={{
-          fontSize: '2rem', fontWeight: 600, color: '#2c2c2c', marginBottom: '0.75rem', lineHeight: 1.3,
-          fontFamily: 'var(--font-newsreader)'
-        }}>
-          {recipe.title}
-        </h1>
+<h1 style={{
+  fontSize: '2rem', fontWeight: 600, color: '#2c2c2c', marginBottom: '0.5rem', lineHeight: 1.3,
+  fontFamily: 'var(--font-newsreader)'
+}}>
+  {recipe.title}
+</h1>
+
+{recipe.source_url && (
+  <a href={recipe.source_url} target="_blank" style={{
+    display: 'inline-block',
+    color: COLORS.primary,
+    textDecoration: 'none',
+    fontSize: '0.85rem',
+    fontFamily: 'var(--font-manrope)',
+    fontWeight: 600,
+    marginBottom: '1.25rem'
+  }}>
+    View original ↗
+  </a>
+)}
+
+{/* Tags */}
 
         {/* Tags */}
         {tagList(recipe.tags).length > 0 && (
