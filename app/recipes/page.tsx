@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../../src/lib/supabase'
 
 interface Recipe {
   id: string
@@ -17,6 +17,7 @@ export default function RecipesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeTags, setActiveTags] = useState<string[]>([])
 
   useEffect(() => {
     async function loadRecipes() {
@@ -36,25 +37,50 @@ export default function RecipesPage() {
     loadRecipes()
   }, [])
 
-  const filteredRecipes = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase()
-    if (!query) return recipes
-    return recipes.filter((recipe) => {
-      const titleMatch = recipe.title?.toLowerCase().includes(query)
-      const tagsMatch = recipe.tags?.toLowerCase().includes(query)
-      return titleMatch || tagsMatch
-    })
-  }, [recipes, searchQuery])
-
   function tagList(tags: string | null): string[] {
     if (!tags) return []
     return tags.split(',').map((t) => t.trim()).filter(Boolean)
   }
 
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>()
+    recipes.forEach((recipe) => {
+      tagList(recipe.tags).forEach((tag) => tagSet.add(tag))
+    })
+    return Array.from(tagSet).sort()
+  }, [recipes])
+
+  function toggleTag(tag: string) {
+    setActiveTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    )
+  }
+
+  function clearTags() {
+    setActiveTags([])
+  }
+
+  const filteredRecipes = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+    const activeTagsLower = activeTags.map((t) => t.toLowerCase())
+
+    return recipes.filter((recipe) => {
+      const titleMatch = recipe.title?.toLowerCase().includes(query)
+      const tagsMatch = recipe.tags?.toLowerCase().includes(query)
+      const passesSearch = !query || titleMatch || tagsMatch
+
+      const recipeTagsLower = tagList(recipe.tags).map((t) => t.toLowerCase())
+      const passesTagFilter =
+        activeTagsLower.length === 0 ||
+        activeTagsLower.every((tag) => recipeTagsLower.includes(tag))
+
+      return passesSearch && passesTagFilter
+    })
+  }, [recipes, searchQuery, activeTags])
+
   return (
     <div style={{ minHeight: '100vh', background: '#f7f5f0', fontFamily: 'Georgia, serif' }}>
 
-      {/* Header */}
       <header style={{
         background: '#7c8c6e',
         padding: '1rem 2rem',
@@ -77,7 +103,6 @@ export default function RecipesPage() {
 
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: '2rem 1rem' }}>
 
-        {/* Search */}
         <input
           type="text"
           value={searchQuery}
@@ -86,11 +111,62 @@ export default function RecipesPage() {
           style={{
             width: '100%', padding: '0.75rem 1rem', fontSize: '1rem',
             border: '1.5px solid #ddd8ce', borderRadius: 10,
-            marginBottom: '2rem', background: '#fff',
+            marginBottom: '1rem', background: '#fff',
             outline: 'none', boxSizing: 'border-box',
             fontFamily: 'system-ui, sans-serif', color: '#2c2c2c'
           }}
         />
+
+        {allTags.length > 0 && (
+          <div style={{ marginBottom: '2rem' }}>
+            <div style={{
+              display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center'
+            }}>
+              {allTags.map((tag) => {
+                const isActive = activeTags.includes(tag)
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => toggleTag(tag)}
+                    style={{
+                      fontSize: '0.8rem',
+                      padding: '0.35rem 0.9rem',
+                      borderRadius: 999,
+                      border: isActive ? '1.5px solid #7c8c6e' : '1.5px solid #e0dbd2',
+                      background: isActive ? '#7c8c6e' : '#fff',
+                      color: isActive ? '#fff' : '#5a6b4a',
+                      fontFamily: 'system-ui, sans-serif',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      transition: 'background 0.15s, color 0.15s, border-color 0.15s'
+                    }}
+                  >
+                    {tag}
+                  </button>
+                )
+              })}
+              {activeTags.length > 0 && (
+                <button
+                  onClick={clearTags}
+                  style={{
+                    fontSize: '0.8rem',
+                    padding: '0.35rem 0.9rem',
+                    borderRadius: 999,
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#b85c3a',
+                    fontFamily: 'system-ui, sans-serif',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {isLoading && <p style={{ color: '#888', textAlign: 'center', padding: '3rem' }}>Loading your recipes…</p>}
         {error && <p style={{ color: '#b91c1c' }}>Failed to load recipes: {error}</p>}
@@ -98,10 +174,11 @@ export default function RecipesPage() {
           <p style={{ color: '#888', textAlign: 'center', padding: '3rem' }}>No recipes saved yet. Add your first one!</p>
         )}
         {!isLoading && !error && recipes.length > 0 && filteredRecipes.length === 0 && (
-          <p style={{ color: '#888', textAlign: 'center' }}>No recipes match &ldquo;{searchQuery}&rdquo;.</p>
+          <p style={{ color: '#888', textAlign: 'center' }}>
+            No recipes match{searchQuery ? ` "${searchQuery}"` : ''}{activeTags.length > 0 ? ` with the selected tags` : ''}.
+          </p>
         )}
 
-        {/* Grid */}
         {!isLoading && !error && filteredRecipes.length > 0 && (
           <div style={{
             display: 'grid',
@@ -126,7 +203,6 @@ export default function RecipesPage() {
                     ;(e.currentTarget as HTMLDivElement).style.boxShadow = 'none'
                   }}
                 >
-                  {/* Image */}
                   <div style={{ width: '100%', height: 180, background: '#ede9e2', overflow: 'hidden' }}>
                     {recipe.image ? (
                       <img src={recipe.image} alt={recipe.title}
@@ -138,7 +214,6 @@ export default function RecipesPage() {
                     )}
                   </div>
 
-                  {/* Content */}
                   <div style={{ padding: '1rem' }}>
                     <h2 style={{
                       fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem', margin: '0 0 0.5rem',
