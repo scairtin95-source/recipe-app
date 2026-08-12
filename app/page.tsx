@@ -70,7 +70,7 @@ export default function Home() {
     if (data.title) setMode('preview')
   }
 
-  const saveRecipe = async () => {
+const saveRecipe = async () => {
     if (!title) { setMessage('Please enter a title'); return }
     setSaving(true)
     const { error } = await supabase
@@ -80,9 +80,47 @@ export default function Home() {
       setMessage('Error saving: ' + error.message)
       setSaving(false)
     } else {
+      addIngredientsToPantry(ingredients)
       resetAll()
       setMessage('Recipe saved!')
       setSaving(false)
+    }
+  }
+
+  const addIngredientsToPantry = async (rawIngredients: string) => {
+    const lines = parseList(rawIngredients)
+    if (lines.length === 0) return
+
+    try {
+      const res = await fetch('/api/extract-pantry-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ingredients: lines }),
+      })
+      const json = await res.json()
+      const items = json.items || []
+      if (items.length === 0) return
+
+      const { data: existing } = await supabase.from('pantry_items').select('name')
+      const existingNames = new Set(
+        (existing || []).map((i: any) => i.name.trim().toLowerCase())
+      )
+
+      const newItems = items.filter(
+        (item: any) => !existingNames.has(item.name.trim().toLowerCase())
+      )
+
+      if (newItems.length > 0) {
+        await supabase.from('pantry_items').insert(
+          newItems.map((item: any) => ({
+            name: item.name,
+            category: item.category,
+            have_it: false,
+          }))
+        )
+      }
+    } catch (err) {
+      console.error('addIngredientsToPantry error:', err)
     }
   }
 
