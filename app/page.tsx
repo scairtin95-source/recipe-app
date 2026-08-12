@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from './lib/supabase'
+import { supabase } from '../src/lib/supabase'
 
 const COLORS = {
   primary: '#9D3D2E',
