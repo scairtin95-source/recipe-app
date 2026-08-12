@@ -17,6 +17,7 @@ interface Recipe {
   title: string | null
   ingredients: string | null
   image: string | null
+  tags: string | null
 }
 
 interface PantryItem {
@@ -35,17 +36,52 @@ function parseList(raw: string | null): string[] {
   return raw.split('\n').map((s) => s.trim()).filter(Boolean)
 }
 
+function decodeHtmlEntities(text: string | null): string {
+  if (!text) return ''
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+}
+
+// Renders a recipe image with graceful fallback to an icon — handles both
+// genuinely broken URLs (onError) and "hotlink protection" placeholder
+// images some sites serve instead of the real photo, which load
+// successfully but are suspiciously small (caught via onLoad).
+function RecipeImage({ src, alt, fontSize = '2rem' }: { src: string | null; alt: string; fontSize?: string }) {
+  const [broken, setBroken] = useState(false)
+  if (!src || broken) {
+    return <span style={{ fontSize }}>🫒</span>
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onError={() => setBroken(true)}
+      onLoad={(e) => {
+        const img = e.currentTarget
+        if (img.naturalWidth < 150 || img.naturalHeight < 150) setBroken(true)
+      }}
+      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+    />
+  )
+}
+
 export default function Home() {
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [craving, setCraving] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [cravingResults, setCravingResults] = useState<Recipe[] | null>(null)
 
   useEffect(() => {
     async function load() {
       const { data: recipeData } = await supabase
         .from('recipes')
-        .select('id, title, ingredients, image')
+        .select('id, title, ingredients, image, tags')
       const { data: pantryData } = await supabase
         .from('pantry_items')
         .select('name, have_it')
@@ -62,9 +98,6 @@ export default function Home() {
     [pantryItems]
   )
 
-  // Build a flat set of significant words from every "have it" pantry item
-  // (e.g. "Beef Chuck Steak" -> beef, chuck, steak), so a recipe ingredient
-  // line matches if it contains ANY of those words, not just an exact phrase.
   const matches = useMemo(() => {
     const haveItWords = new Set<string>()
     haveItNames.forEach((name) => {
@@ -108,6 +141,32 @@ export default function Home() {
   const pantryCount = pantryItems.filter((p) => p.have_it).length
   const matchPotential = pantryCount > 40 ? 'High' : pantryCount > 15 ? 'Medium' : 'Low'
 
+  const runCravingSearch = async () => {
+    if (!craving.trim() || recipes.length === 0) return
+    setSearching(true)
+    setCravingResults(null)
+    try {
+      const res = await fetch('/api/craving-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ craving, recipes }),
+      })
+      const json = await res.json()
+      const ids = new Set((json.ids || []).map((id: any) => String(id)))
+      const results = recipes.filter((r) => ids.has(String(r.id)))
+      setCravingResults(results)
+    } catch (err) {
+      console.error(err)
+      setCravingResults([])
+    }
+    setSearching(false)
+  }
+
+  const clearCraving = () => {
+    setCraving('')
+    setCravingResults(null)
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: COLORS.neutral, fontFamily: 'var(--font-manrope)' }}>
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: '2.5rem 1.5rem' }}>
@@ -125,18 +184,33 @@ export default function Home() {
             <p style={{ color: '#6a6a6a', fontSize: '0.9rem', margin: '0 0 1.25rem' }}>
               Tell me what you're in the mood for, or just let me suggest something based on what's in your pantry.
             </p>
-            <input
-              type="text"
-              placeholder="e.g., A quick pasta dish with tomatoes…"
-              value={craving}
-              onChange={(e) => setCraving(e.target.value)}
-              style={{
-                width: '100%', padding: '0.85rem 1.1rem', fontSize: '0.95rem',
-                border: `1.5px solid ${COLORS.border}`, borderRadius: 12,
-                outline: 'none', fontFamily: 'var(--font-manrope)',
-                boxSizing: 'border-box', background: '#fff', marginBottom: '1rem'
-              }}
-            />
+            <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem' }}>
+              <input
+                type="text"
+                placeholder="e.g., A quick pasta dish with tomatoes…"
+                value={craving}
+                onChange={(e) => setCraving(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && runCravingSearch()}
+                style={{
+                  flex: 1, padding: '0.85rem 1.1rem', fontSize: '0.95rem',
+                  border: `1.5px solid ${COLORS.border}`, borderRadius: 12,
+                  outline: 'none', fontFamily: 'var(--font-manrope)',
+                  boxSizing: 'border-box', background: '#fff'
+                }}
+              />
+              <button
+                onClick={runCravingSearch}
+                disabled={searching || !craving.trim()}
+                style={{
+                  padding: '0.85rem 1.4rem', borderRadius: 12, border: 'none',
+                  background: COLORS.secondary, color: '#fff', fontWeight: 600,
+                  fontSize: '0.9rem', cursor: 'pointer',
+                  opacity: (searching || !craving.trim()) ? 0.6 : 1, whiteSpace: 'nowrap'
+                }}
+              >
+                {searching ? 'Thinking…' : 'Suggest'}
+              </button>
+            </div>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#8a8378', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 Try:
@@ -177,6 +251,48 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Craving search results */}
+        {cravingResults !== null && (
+          <div style={{ marginBottom: '3rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.25rem' }}>
+              <h2 style={{ fontFamily: 'var(--font-newsreader)', fontSize: '1.5rem', fontWeight: 700, color: '#2c2c2c', margin: 0 }}>
+                Suggestions for "{craving}"
+              </h2>
+              <button onClick={clearCraving} style={{
+                fontSize: '0.85rem', color: COLORS.primary, background: 'transparent',
+                border: 'none', cursor: 'pointer', fontWeight: 600
+              }}>
+                Clear
+              </button>
+            </div>
+
+            {cravingResults.length === 0 && (
+              <p style={{ color: '#8a8378', fontSize: '0.9rem' }}>
+                Nothing matched that well — try a different craving, or browse <Link href="/recipes" style={{ color: COLORS.primary }}>all recipes</Link>.
+              </p>
+            )}
+
+            {cravingResults.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
+                {cravingResults.map((recipe) => (
+                  <Link key={recipe.id} href={`/recipes/${recipe.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', border: `1px solid ${COLORS.border}` }}>
+                      <div style={{ height: 170, background: '#e8dcc4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <RecipeImage src={recipe.image} alt={decodeHtmlEntities(recipe.title)} />
+                      </div>
+                      <div style={{ padding: '1rem' }}>
+                        <p style={{ fontFamily: 'var(--font-newsreader)', fontSize: '1rem', fontWeight: 700, color: '#2c2c2c', margin: 0 }}>
+                          {decodeHtmlEntities(recipe.title)}
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Ready to Cook */}
         <div style={{ marginBottom: '3rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.25rem' }}>
@@ -203,16 +319,12 @@ export default function Home() {
               {readyToCook.map(({ recipe, matchPct }) => (
                 <Link key={recipe.id} href={`/recipes/${recipe.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                   <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', border: `1px solid ${COLORS.border}` }}>
-                    <div style={{ height: 170, background: '#e8dcc4' }}>
-                      {recipe.image && (
-                        <img src={recipe.image} alt={recipe.title || ''}
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      )}
+                    <div style={{ height: 170, background: '#e8dcc4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <RecipeImage src={recipe.image} alt={decodeHtmlEntities(recipe.title)} />
                     </div>
                     <div style={{ padding: '1rem' }}>
                       <p style={{ fontFamily: 'var(--font-newsreader)', fontSize: '1rem', fontWeight: 700, color: '#2c2c2c', margin: '0 0 0.3rem' }}>
-                        {recipe.title}
+                        {decodeHtmlEntities(recipe.title)}
                       </p>
                       <p style={{ fontSize: '0.8rem', color: COLORS.secondary, margin: 0, fontWeight: 600 }}>
                         {Math.round(matchPct * 100)}% match
@@ -243,16 +355,12 @@ export default function Home() {
               {almostThere.map(({ recipe, matchPct }) => (
                 <Link key={recipe.id} href={`/recipes/${recipe.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                   <div style={{ display: 'flex', gap: '1rem', background: '#fff', borderRadius: 16, overflow: 'hidden', border: `1px solid ${COLORS.border}` }}>
-                    <div style={{ width: 100, height: 100, flexShrink: 0, background: '#e8dcc4' }}>
-                      {recipe.image && (
-                        <img src={recipe.image} alt={recipe.title || ''}
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      )}
+                    <div style={{ width: 100, height: 100, flexShrink: 0, background: '#e8dcc4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <RecipeImage src={recipe.image} alt={decodeHtmlEntities(recipe.title)} fontSize="1.4rem" />
                     </div>
                     <div style={{ padding: '0.9rem 1rem 0.9rem 0' }}>
                       <p style={{ fontFamily: 'var(--font-newsreader)', fontSize: '0.95rem', fontWeight: 700, color: '#2c2c2c', margin: '0 0 0.4rem' }}>
-                        {recipe.title}
+                        {decodeHtmlEntities(recipe.title)}
                       </p>
                       <span style={{
                         display: 'inline-block', fontSize: '0.75rem', color: COLORS.primary,
