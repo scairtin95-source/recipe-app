@@ -70,7 +70,7 @@ export default function Nav() {
           </svg>
         </Link>
 
-        <Link href="/" style={{
+        <Link href="/add" style={{
           background: COLORS.secondary,
           color: COLORS.neutral,
           padding: '0.5rem 1.2rem',
