@@ -133,20 +133,18 @@ export default function PantryPage() {
               return (
                 <div key={category} style={{
                   background: '#fff', borderRadius: 16, overflow: 'hidden',
-                  border: `1px solid ${COLORS.border}`
+                  border: `1px solid ${COLORS.border}`, position: 'relative'
                 }}>
                   <div style={{
-                    height: 130, background: '#e8dcc4', position: 'relative', display: 'flex',
-                    alignItems: 'flex-end', padding: '1rem'
+                    height: 130, background: '#e8dcc4'
+                  }} />
+                  <div style={{
+                    width: 40, height: 40, borderRadius: '50%', background: COLORS.secondary,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '1.2rem', position: 'absolute', top: 110, left: 16,
+                    border: '3px solid #fff'
                   }}>
-                    <div style={{
-                      width: 40, height: 40, borderRadius: '50%', background: COLORS.secondary,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '1.2rem', position: 'absolute', top: -20, left: 16,
-                      border: '3px solid #fff'
-                    }}>
-                      {CATEGORY_ICONS[category] || '🍽️'}
-                    </div>
+                    {CATEGORY_ICONS[category] || '🍽️'}
                   </div>
                   <div style={{ padding: '1.5rem 1.25rem 1.25rem' }}>
                     <h2 style={{

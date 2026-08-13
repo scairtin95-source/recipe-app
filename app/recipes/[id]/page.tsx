@@ -69,7 +69,7 @@ export default function RecipePage() {
     if (!selectedCollection || !recipe) return
     const { error } = await supabase
       .from('collection_recipes')
-      .insert([{ collection_id: Number(selectedCollection), recipe_id: recipe.id }])
+      .insert([{ collection_id: Number(selectedCollection), recipe_id: Number(recipe.id) }])
     if (error) {
       setAddStatus('Error adding')
     } else {

@@ -169,10 +169,10 @@ export default function Home() {
 
   return (
     <div style={{ minHeight: '100vh', background: COLORS.neutral, fontFamily: 'var(--font-manrope)' }}>
-      <main style={{ maxWidth: 1100, margin: '0 auto', padding: '2.5rem 1.5rem' }}>
+      <main className="oliva-home-main" style={{ maxWidth: 1100, margin: '0 auto', padding: '2.5rem 1.5rem' }}>
 
         {/* Top row: craving box + pantry status */}
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', marginBottom: '3rem' }}>
+        <div className="oliva-top-row" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', marginBottom: '3rem' }}>
 
           <div style={{ background: '#eee7d9', borderRadius: 18, padding: '2rem' }}>
             <h1 style={{
@@ -184,7 +184,7 @@ export default function Home() {
             <p style={{ color: '#6a6a6a', fontSize: '0.9rem', margin: '0 0 1.25rem' }}>
               Tell me what you're in the mood for, or just let me suggest something based on what's in your pantry.
             </p>
-            <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem' }}>
+            <div className="oliva-craving-row" style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem' }}>
               <input
                 type="text"
                 placeholder="e.g., A quick pasta dish with tomatoes…"
@@ -195,7 +195,7 @@ export default function Home() {
                   flex: 1, padding: '0.85rem 1.1rem', fontSize: '0.95rem',
                   border: `1.5px solid ${COLORS.border}`, borderRadius: 12,
                   outline: 'none', fontFamily: 'var(--font-manrope)',
-                  boxSizing: 'border-box', background: '#fff'
+                  boxSizing: 'border-box', background: '#fff', minWidth: 0
                 }}
               />
               <button
@@ -377,6 +377,23 @@ export default function Home() {
         </div>
 
       </main>
+
+      <style jsx>{`
+        @media (max-width: 768px) {
+          .oliva-home-main {
+            padding: 1.5rem 1.25rem !important;
+          }
+          .oliva-top-row {
+            grid-template-columns: 1fr !important;
+          }
+          .oliva-craving-row {
+            flex-direction: column !important;
+          }
+          .oliva-craving-row button {
+            width: 100% !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }

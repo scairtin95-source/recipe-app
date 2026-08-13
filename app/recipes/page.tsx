@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { supabase } from '../../src/lib/supabase'
 
 interface Recipe {
-  id: string
+  id: number
   title: string
   source_url: string | null
   tags: string | null
@@ -37,8 +37,8 @@ export default function RecipesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTags, setActiveTags] = useState<string[]>([])
   const [collections, setCollections] = useState<Collection[]>([])
-  const [openPickerId, setOpenPickerId] = useState<string | null>(null)
-  const [addStatusId, setAddStatusId] = useState<string | null>(null)
+  const [openPickerId, setOpenPickerId] = useState<number | null>(null)
+  const [addStatusId, setAddStatusId] = useState<number | null>(null)
 
   useEffect(() => {
     async function loadRecipes() {
@@ -137,7 +137,7 @@ export default function RecipesPage() {
     })
   }, [recipes, searchQuery, activeTags])
 
-  async function addToCollection(recipeId: string, collectionId: number) {
+  async function addToCollection(recipeId: number, collectionId: number) {
     const { error } = await supabase
       .from('collection_recipes')
       .insert([{ collection_id: collectionId, recipe_id: Number(recipeId) }])

@@ -1,6 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 
 const COLORS = {
@@ -14,6 +16,7 @@ const COLORS = {
 
 export default function Nav() {
   const pathname = usePathname()
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const linkStyle = (active: boolean) => ({
     color: COLORS.text,
@@ -26,43 +29,70 @@ export default function Nav() {
     paddingBottom: '2px',
   })
 
+  const mobileLinkStyle = (active: boolean) => ({
+    color: COLORS.text,
+    textDecoration: 'none',
+    fontSize: '1rem',
+    fontFamily: 'var(--font-manrope)',
+    fontWeight: active ? 700 : 500,
+    padding: '0.85rem 1.25rem',
+    borderBottom: `1px solid ${COLORS.border}`,
+    display: 'block',
+  })
+
+  const navLinks = [
+    { href: '/', label: 'Home' },
+    { href: '/recipes', label: 'Recipes' },
+    { href: '/pantry', label: 'Pantry' },
+    { href: '/about', label: 'About' },
+  ]
+
   return (
-    <header style={{
-      background: COLORS.neutral,
-      borderBottom: `1px solid ${COLORS.border}`,
-      padding: '0.9rem 2rem',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    }}>
+    <header
+      className="oliva-header"
+      style={{
+        background: COLORS.neutral,
+        borderBottom: `1px solid ${COLORS.border}`,
+        padding: '0.9rem 2rem',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        position: 'relative',
+      }}
+    >
       {/* Logo mark + wordmark */}
       <Link href="/" style={{
         display: 'flex', alignItems: 'center', gap: '0.6rem',
-        textDecoration: 'none'
+        textDecoration: 'none', flexShrink: 0,
       }}>
-        <svg width="30" height="30" viewBox="0 0 30 30" style={{ flexShrink: 0 }}>
-          <circle cx="15" cy="15" r="13.5" fill="none" stroke={COLORS.secondary} strokeWidth="1" />
-          <circle cx="15" cy="15" r="11.5" fill="none" stroke={COLORS.secondary} strokeWidth="1" />
-          <ellipse cx="15" cy="17" rx="3.5" ry="4.5" fill={COLORS.secondary} />
-        </svg>
+        <Image
+          src="/oliva-icon.png"
+          alt="Oliva"
+          width={56}
+          height={56}
+          style={{ flexShrink: 0, objectFit: 'contain', width: 56, height: 56 }}
+          unoptimized
+          priority
+        />
         <span style={{
           color: COLORS.text, fontSize: '1.15rem', fontWeight: 700,
-          fontFamily: 'var(--font-newsreader)'
+          fontFamily: 'var(--font-newsreader)', whiteSpace: 'nowrap',
         }}>
-          The Olive Table
+          Oliva
         </span>
       </Link>
 
-      {/* Center nav links */}
-      <nav style={{ display: 'flex', gap: '1.75rem', alignItems: 'center' }}>
-        <Link href="/" style={linkStyle(pathname === '/')}>Home</Link>
-        <Link href="/recipes" style={linkStyle(pathname === '/recipes')}>Recipes</Link>
-        <Link href="/pantry" style={linkStyle(pathname === '/pantry')}>Pantry</Link>
-        <Link href="/about" style={linkStyle(pathname === '/about')}>About</Link>
+      {/* Center nav links — hidden on mobile */}
+      <nav className="oliva-desktop-links" style={{ display: 'flex', gap: '1.75rem', alignItems: 'center' }}>
+        {navLinks.map((link) => (
+          <Link key={link.href} href={link.href} style={linkStyle(pathname === link.href)}>
+            {link.label}
+          </Link>
+        ))}
       </nav>
 
       {/* Right side actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexShrink: 0 }}>
         <Link href="/recipes" aria-label="Search" style={{ color: COLORS.text, display: 'flex' }}>
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="7" />
@@ -70,7 +100,7 @@ export default function Nav() {
           </svg>
         </Link>
 
-        <Link href="/add" style={{
+        <Link href="/add" className="oliva-add-recipe" style={{
           background: COLORS.secondary,
           color: COLORS.neutral,
           padding: '0.5rem 1.2rem',
@@ -79,18 +109,104 @@ export default function Nav() {
           fontSize: '0.9rem',
           fontWeight: 600,
           fontFamily: 'var(--font-manrope)',
+          whiteSpace: 'nowrap',
         }}>
           Add Recipe
         </Link>
 
-        <div aria-label="Profile" style={{ color: COLORS.text, display: 'flex', cursor: 'pointer' }}>
+        <div aria-label="Profile" className="oliva-desktop-links" style={{ color: COLORS.text, display: 'flex', cursor: 'pointer' }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <circle cx="12" cy="12" r="10" />
             <circle cx="12" cy="9" r="3.2" />
             <path d="M5.5 19.5c1.5-3 4-4.2 6.5-4.2s5 1.2 6.5 4.2" />
           </svg>
         </div>
+
+        {/* Hamburger — visible on mobile only */}
+        <button
+          className="oliva-hamburger"
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          onClick={() => setMenuOpen((v) => !v)}
+          style={{
+            display: 'none',
+            background: 'none',
+            border: 'none',
+            padding: '0.25rem',
+            cursor: 'pointer',
+            color: COLORS.text,
+          }}
+        >
+          {menuOpen ? (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="6" y1="6" x2="18" y2="18" />
+              <line x1="18" y1="6" x2="6" y2="18" />
+            </svg>
+          ) : (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          )}
+        </button>
       </div>
+
+      {/* Mobile dropdown menu */}
+      {menuOpen && (
+        <div
+          className="oliva-mobile-menu"
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            background: COLORS.neutral,
+            borderBottom: `1px solid ${COLORS.border}`,
+            boxShadow: '0 8px 20px rgba(0,0,0,0.08)',
+            zIndex: 50,
+          }}
+        >
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              style={mobileLinkStyle(pathname === link.href)}
+              onClick={() => setMenuOpen(false)}
+            >
+              {link.label}
+            </Link>
+          ))}
+          <div style={{ padding: '0.85rem 1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={COLORS.text} strokeWidth="1.8">
+              <circle cx="12" cy="12" r="10" />
+              <circle cx="12" cy="9" r="3.2" />
+              <path d="M5.5 19.5c1.5-3 4-4.2 6.5-4.2s5 1.2 6.5 4.2" />
+            </svg>
+            <span style={{ fontSize: '0.95rem', color: COLORS.text, fontFamily: 'var(--font-manrope)' }}>
+              Profile
+            </span>
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        @media (max-width: 768px) {
+          .oliva-header {
+            padding: 0.75rem 1.25rem !important;
+          }
+          .oliva-desktop-links {
+            display: none !important;
+          }
+          .oliva-hamburger {
+            display: flex !important;
+            align-items: center;
+          }
+          .oliva-add-recipe {
+            padding: 0.45rem 0.85rem !important;
+            font-size: 0.8rem !important;
+          }
+        }
+      `}</style>
     </header>
   )
 }
