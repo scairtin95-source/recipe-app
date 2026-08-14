@@ -10,6 +10,13 @@ const COLORS = {
   neutral: '#FDF8F5',
 }
 
+interface StructuredIngredient {
+  quantity: number | null
+  unit: string | null
+  item: string
+  raw: string
+}
+
 function parseList(raw: any): string[] {
   if (!raw) return []
   if (Array.isArray(raw)) return raw.map(String).filter(Boolean)
@@ -19,6 +26,18 @@ function parseList(raw: any): string[] {
     if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean)
   } catch {}
   return raw.split('\n').map(s => s.trim()).filter(Boolean)
+}
+
+// Formats structured ingredients (or plain strings) into readable
+// "quantity unit item" lines for the preview card and the editable textarea.
+function formatIngredientLines(entries: StructuredIngredient[] | string[]): string[] {
+  return entries.map((entry) => {
+    if (typeof entry === 'string') return entry
+    if (entry.quantity !== null && entry.unit) {
+      return `${entry.quantity} ${entry.unit} ${entry.item}`.trim()
+    }
+    return entry.raw || entry.item || ''
+  }).filter(Boolean)
 }
 
 function tagList(tags: string): string[] {
@@ -34,20 +53,48 @@ function getDomain(url: string): string {
   }
 }
 
+function formatMinutesShort(mins: number | null): string | null {
+  if (!mins || mins <= 0) return null
+  if (mins < 60) return `${mins} min`
+  const hours = Math.floor(mins / 60)
+  const rest = mins % 60
+  return rest > 0 ? `${hours} hr ${rest} min` : `${hours} hr`
+}
+
 export default function Home() {
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
-  const [ingredients, setIngredients] = useState('')
+
+  // structuredIngredients holds the parser's { quantity, unit, item, raw }
+  // objects, kept intact for saving so the recipe detail page's unit-aware
+  // conversion works. ingredientsText is the editable plain-text mirror
+  // shown in the manual-edit textarea. If the person edits that text by
+  // hand, ingredientsEdited flips true and the save falls back to a plain
+  // string array (same format legacy recipes already use) rather than
+  // trying to guess new quantity/unit splits from freehand edits.
+  const [structuredIngredients, setStructuredIngredients] = useState<StructuredIngredient[] | null>(null)
+  const [ingredientsText, setIngredientsText] = useState('')
+  const [ingredientsEdited, setIngredientsEdited] = useState(false)
+
   const [steps, setSteps] = useState('')
   const [tags, setTags] = useState('')
   const [image, setImage] = useState('')
+
+  const [prepTimeMinutes, setPrepTimeMinutes] = useState<number | null>(null)
+  const [cookTimeMinutes, setCookTimeMinutes] = useState<number | null>(null)
+  const [totalTimeMinutes, setTotalTimeMinutes] = useState<number | null>(null)
+  const [servings, setServings] = useState<number | null>(null)
+
   const [parsing, setParsing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [mode, setMode] = useState<'input' | 'preview' | 'edit'>('input')
 
   const resetAll = () => {
-    setUrl(''); setTitle(''); setIngredients(''); setSteps(''); setTags(''); setImage('')
+    setUrl(''); setTitle('')
+    setStructuredIngredients(null); setIngredientsText(''); setIngredientsEdited(false)
+    setSteps(''); setTags(''); setImage('')
+    setPrepTimeMinutes(null); setCookTimeMinutes(null); setTotalTimeMinutes(null); setServings(null)
     setMessage('')
     setMode('input')
   }
@@ -62,25 +109,53 @@ export default function Home() {
     })
     const data = await res.json()
     if (data.title) setTitle(data.title)
-    if (data.ingredients) setIngredients(data.ingredients)
-    if (data.steps) setSteps(data.steps)
+    if (Array.isArray(data.ingredients)) {
+      setStructuredIngredients(data.ingredients)
+      setIngredientsText(formatIngredientLines(data.ingredients).join('\n'))
+      setIngredientsEdited(false)
+    }
+    if (Array.isArray(data.steps)) setSteps(data.steps.join('\n'))
     if (data.image) setImage(data.image)
+    setPrepTimeMinutes(typeof data.prepTimeMinutes === 'number' ? data.prepTimeMinutes : null)
+    setCookTimeMinutes(typeof data.cookTimeMinutes === 'number' ? data.cookTimeMinutes : null)
+    setTotalTimeMinutes(typeof data.totalTimeMinutes === 'number' ? data.totalTimeMinutes : null)
+    setServings(typeof data.servings === 'number' ? data.servings : null)
     setMessage('')
     setParsing(false)
     if (data.title) setMode('preview')
   }
 
-const saveRecipe = async () => {
+  const saveRecipe = async () => {
     if (!title) { setMessage('Please enter a title'); return }
     setSaving(true)
+
+    // Use the parser's structured data as-is if the ingredients text
+    // hasn't been hand-edited; otherwise save whatever's in the textarea
+    // as a plain string array (legacy-compatible format).
+    const ingredientsToSave =
+      structuredIngredients && !ingredientsEdited
+        ? JSON.stringify(structuredIngredients)
+        : JSON.stringify(parseList(ingredientsText))
+
     const { error } = await supabase
       .from('recipes')
-      .insert([{ title, ingredients, steps, tags, source_url: url, image }])
+      .insert([{
+        title,
+        ingredients: ingredientsToSave,
+        steps,
+        tags,
+        source_url: url,
+        image,
+        prep_time_minutes: prepTimeMinutes,
+        cook_time_minutes: cookTimeMinutes,
+        total_time_minutes: totalTimeMinutes,
+        servings,
+      }])
     if (error) {
       setMessage('Error saving: ' + error.message)
       setSaving(false)
     } else {
-      addIngredientsToPantry(ingredients)
+      addIngredientsToPantry(ingredientsText)
       resetAll()
       setMessage('Recipe saved!')
       setSaving(false)
@@ -132,8 +207,17 @@ const saveRecipe = async () => {
     width: '100%', boxSizing: 'border-box' as const
   }
 
-  const ingredientPreview = parseList(ingredients)
+  const ingredientPreview =
+    structuredIngredients && !ingredientsEdited
+      ? formatIngredientLines(structuredIngredients)
+      : parseList(ingredientsText)
   const previewTags = tagList(tags)
+
+  const metaSummary = [
+    formatMinutesShort(prepTimeMinutes) && `Prep ${formatMinutesShort(prepTimeMinutes)}`,
+    formatMinutesShort(cookTimeMinutes) && `Cook ${formatMinutesShort(cookTimeMinutes)}`,
+    servings && `Serves ${servings}`,
+  ].filter(Boolean).join(' · ')
 
   return (
     <div style={{ minHeight: '100vh', background: COLORS.neutral, fontFamily: 'var(--font-manrope)' }}>
@@ -231,10 +315,16 @@ const saveRecipe = async () => {
               )}
               <h3 style={{
                 fontFamily: 'var(--font-newsreader)', fontSize: '1.35rem', fontWeight: 600,
-                color: '#2c2c2c', margin: '0 0 0.9rem', lineHeight: 1.3
+                color: '#2c2c2c', margin: '0 0 0.4rem', lineHeight: 1.3
               }}>
                 {title}
               </h3>
+
+              {metaSummary && (
+                <p style={{ fontSize: '0.8rem', color: COLORS.secondary, fontWeight: 600, margin: '0 0 0.9rem' }}>
+                  {metaSummary}
+                </p>
+              )}
 
               {ingredientPreview.length > 0 && (
                 <>
@@ -302,15 +392,43 @@ const saveRecipe = async () => {
               style={{ ...inputStyle, fontFamily: 'var(--font-newsreader)', fontSize: '1.1rem' }}
             />
 
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <input
+                type="number" placeholder="Prep (min)" value={prepTimeMinutes ?? ''}
+                onChange={(e) => setPrepTimeMinutes(e.target.value ? Number(e.target.value) : null)}
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <input
+                type="number" placeholder="Cook (min)" value={cookTimeMinutes ?? ''}
+                onChange={(e) => setCookTimeMinutes(e.target.value ? Number(e.target.value) : null)}
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <input
+                type="number" placeholder="Total (min)" value={totalTimeMinutes ?? ''}
+                onChange={(e) => setTotalTimeMinutes(e.target.value ? Number(e.target.value) : null)}
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <input
+                type="number" placeholder="Servings" value={servings ?? ''}
+                onChange={(e) => setServings(e.target.value ? Number(e.target.value) : null)}
+                style={{ ...inputStyle, flex: 1 }}
+              />
+            </div>
+
             <div>
               <label style={{ fontSize: '0.8rem', fontWeight: 600, color: COLORS.tertiary, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: '0.4rem' }}>
                 Ingredients
               </label>
               <textarea
-                placeholder="One ingredient per line…" value={ingredients}
-                onChange={(e) => setIngredients(e.target.value)}
+                placeholder="One ingredient per line…" value={ingredientsText}
+                onChange={(e) => { setIngredientsText(e.target.value); setIngredientsEdited(true) }}
                 rows={6} style={{ ...inputStyle, resize: 'vertical' as const }}
               />
+              {structuredIngredients && !ingredientsEdited && (
+                <p style={{ fontSize: '0.75rem', color: '#8a8378', margin: '0.4rem 0 0' }}>
+                  Quantities were parsed automatically — editing this text will save it as plain lines instead.
+                </p>
+              )}
             </div>
 
             <div>
