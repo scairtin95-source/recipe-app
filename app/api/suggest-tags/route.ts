@@ -35,7 +35,6 @@ Respond with ONLY the comma separated tags, nothing else.`,
     return NextResponse.json({ tags })
   } catch (error) {
     console.error('Tag suggestion error:', error)
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    return NextResponse.json({ tags: '', debugError: errorMessage }, { status: 200 })
+    return NextResponse.json({ tags: '' }, { status: 500 })
   }
 }
