@@ -23,6 +23,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   'Spices & Herbs': '🌿',
   'Oils & Vinegars': '🫙',
   'Cold Storage': '🧊',
+  'Meat & Seafood': '🥩',
   'Produce': '🥕',
   'Pantry Staples': '🥫',
 }

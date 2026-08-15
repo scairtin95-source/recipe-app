@@ -122,6 +122,16 @@ function tagList(tags: string | null): string[] {
   return tags.split(',').map(t => t.trim()).filter(Boolean)
 }
 
+function decodeHtmlEntities(text: string | null): string {
+  if (!text) return ''
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+}
+
 // The "missing image" fallback uses the actual Oliva logo mark rather than
 // an emoji or generic icon — some browsers/OS combos (older Windows Chrome
 // in particular) don't have a font covering newer emoji like 🫒 and render
@@ -358,7 +368,7 @@ export default function RecipePage() {
             the same olive placeholder as ones with a broken/blocked URL,
             instead of no box appearing at all. */}
         <div style={{ width: '100%', height: 280, overflow: 'hidden', borderRadius: 16, marginBottom: '1.5rem', border: '1px solid #eee3d8', background: '#f1e9dd', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <RecipeImage src={recipe.image} alt={recipe.title} variant="full" />
+          <RecipeImage src={recipe.image} alt={decodeHtmlEntities(recipe.title)} variant="full" />
         </div>
 
         {/* Title */}
@@ -366,7 +376,7 @@ export default function RecipePage() {
           fontSize: '2rem', fontWeight: 600, color: '#2c2c2c', marginBottom: '0.5rem', lineHeight: 1.3,
           fontFamily: 'var(--font-newsreader)'
         }}>
-          {recipe.title}
+          {decodeHtmlEntities(recipe.title)}
         </h1>
 
         {recipe.source_url && (
@@ -586,7 +596,7 @@ export default function RecipePage() {
 
       {cookingMode && (
         <CookingMode
-          title={recipe.title}
+          title={decodeHtmlEntities(recipe.title)}
           image={recipe.image}
           ingredients={ingredientLines}
           steps={steps}

@@ -104,10 +104,20 @@ export default function RecipesPage() {
     loadCollections()
   }, [])
 
-  function tagList(tags: string | null): string[] {
-    if (!tags) return []
-    return tags.split(',').map((t) => t.trim()).filter(Boolean)
-  }
+function tagList(tags: string | null): string[] {
+  if (!tags) return []
+  return tags.split(',').map((t) => t.trim()).filter(Boolean)
+}
+
+function decodeHtmlEntities(text: string | null): string {
+  if (!text) return ''
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+}
 
   function toggleTag(tag: string) {
     setActiveTags((prev) =>
@@ -386,7 +396,7 @@ export default function RecipesPage() {
                     }}
                   >
                     <div style={{ width: '100%', height: 180, background: '#f1e9dd', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <RecipeImage src={recipe.image} alt={recipe.title} size={44} />
+                      <RecipeImage src={recipe.image} alt={decodeHtmlEntities(recipe.title)} size={44} />
                     </div>
 
                     <div style={{ padding: '1.1rem' }}>
@@ -396,7 +406,7 @@ export default function RecipesPage() {
                         WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
                         fontFamily: 'var(--font-newsreader)', color: '#2c2c2c'
                       }}>
-                        {recipe.title || 'Untitled recipe'}
+                        {decodeHtmlEntities(recipe.title) || 'Untitled recipe'}
                       </h2>
 
                       {tagList(recipe.tags).length > 0 && (

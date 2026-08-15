@@ -121,7 +121,7 @@ export async function parseRecipeFromUrl(url: string): Promise<ParseResult> {
 Rules:
 - "ingredients" should be one string per ingredient line, including quantities (e.g. "2 cups flour").
 - "steps" should be one string per instruction step, in order.
-- "prepTimeMinutes", "cookTimeMinutes", "totalTimeMinutes" should be the total number of minutes ONLY if the page explicitly states them (e.g. "Prep: 15 min" → 15, "1 hr 30 min" → 90). Do not guess or estimate — use null if not explicitly stated.
+- "prepTimeMinutes", "cookTimeMinutes", "totalTimeMinutes" should reflect minutes that are genuinely stated on the page — either as an explicit labeled field (e.g. "Prep: 15 min" → 15), OR by summing specific durations mentioned within the method steps themselves (e.g. steps saying "soak for 1 hour", "boil for 30 minutes", "simmer for 35-40 minutes" → totalTimeMinutes could be 60+30+40=130). When step durations are ranges (like "35-40 minutes"), use the upper bound. If prep vs. cook isn't clearly distinguishable from the step text, it's fine to only fill in totalTimeMinutes and leave prepTimeMinutes/cookTimeMinutes null. The key rule: only use numbers that are explicitly written somewhere on the page — never invent or estimate a duration for a step that doesn't mention one, and use null entirely if no durations are stated anywhere.
 - "servings" should be the number of servings/yield ONLY if explicitly stated (e.g. "Serves 4" → 4, "Makes 4-6 servings" → 4). Use null if not stated.
 - If no recipe can be found, respond with {"title": "", "ingredients": [], "steps": [], "prepTimeMinutes": null, "cookTimeMinutes": null, "totalTimeMinutes": null, "servings": null}.
 
@@ -158,6 +158,67 @@ ${cleanedHtml}`,
   return {
     ok: true,
     recipe: { ...translated, ingredients: structuredIngredients, steps: clarifiedSteps, image },
+  }
+}
+
+/**
+ * Re-checks prep/cook/total time using only data already stored for a
+ * recipe (ingredients + steps) — no network fetch. Used for a targeted
+ * follow-up pass on recipes migrated before the time-extraction rule was
+ * loosened to allow summing durations mentioned within step text. The
+ * JSON-LD check during the original migration already covered structured
+ * page data (unaffected by the rule change), so re-fetching the page here
+ * would be redundant — only the text-based inference needed improving.
+ */
+export async function recheckTimeFromText(
+  ingredientLines: string[],
+  stepLines: string[]
+): Promise<{ prepTimeMinutes: number | null; cookTimeMinutes: number | null; totalTimeMinutes: number | null }> {
+  if (stepLines.length === 0) {
+    return { prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null }
+  }
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-5',
+      max_tokens: 500,
+      messages: [
+        {
+          role: 'user',
+          content: `Below are a recipe's ingredients and method steps. Respond with ONLY a JSON object (no markdown fences, no commentary) matching exactly this shape:
+
+{
+  "prepTimeMinutes": number | null,
+  "cookTimeMinutes": number | null,
+  "totalTimeMinutes": number | null
+}
+
+Rules:
+- Fill these in based on durations genuinely stated within the steps (e.g. "soak for 1 hour", "boil for 30 minutes", "simmer for 35-40 minutes"). Sum durations that belong together (e.g. multiple boiling/simmering steps → cookTimeMinutes). When a step gives a range (like "35-40 minutes"), use the upper bound.
+- If prep vs. cook isn't clearly distinguishable, it's fine to only fill in totalTimeMinutes and leave the others null.
+- Never invent or estimate a duration for a step that doesn't mention one. If no durations are stated anywhere, return all three as null.
+
+Ingredients:
+${JSON.stringify(ingredientLines)}
+
+Steps:
+${JSON.stringify(stepLines)}`,
+        },
+      ],
+    })
+    const textBlock = message.content.find((block) => block.type === 'text')
+    if (!textBlock || textBlock.type !== 'text') {
+      return { prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null }
+    }
+    const raw = textBlock.text.trim().replace(/^```json\s*|```$/g, '')
+    const parsed = JSON.parse(raw)
+    return {
+      prepTimeMinutes: typeof parsed.prepTimeMinutes === 'number' ? parsed.prepTimeMinutes : null,
+      cookTimeMinutes: typeof parsed.cookTimeMinutes === 'number' ? parsed.cookTimeMinutes : null,
+      totalTimeMinutes: typeof parsed.totalTimeMinutes === 'number' ? parsed.totalTimeMinutes : null,
+    }
+  } catch (err) {
+    console.error('recheckTimeFromText error:', err)
+    return { prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null }
   }
 }
 
