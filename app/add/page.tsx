@@ -123,6 +123,22 @@ export default function Home() {
     setMessage('')
     setParsing(false)
     if (data.title) setMode('preview')
+
+    // Auto-suggest tags in the background — never blocks the preview from
+    // showing, and failure just leaves tags empty for manual entry.
+    if (data.title && Array.isArray(data.ingredients)) {
+      const ingredientLines = formatIngredientLines(data.ingredients).join('\n')
+      fetch('/api/suggest-tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: data.title, ingredients: ingredientLines }),
+      })
+        .then((r) => r.json())
+        .then((tagResult) => {
+          if (tagResult.tags) setTags(tagResult.tags)
+        })
+        .catch((err) => console.error('suggest-tags error:', err))
+    }
   }
 
   const saveRecipe = async () => {

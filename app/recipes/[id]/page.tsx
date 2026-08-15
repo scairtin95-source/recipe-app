@@ -122,6 +122,68 @@ function tagList(tags: string | null): string[] {
   return tags.split(',').map(t => t.trim()).filter(Boolean)
 }
 
+// The "missing image" fallback uses the actual Oliva logo mark rather than
+// an emoji or generic icon — some browsers/OS combos (older Windows Chrome
+// in particular) don't have a font covering newer emoji like 🫒 and render
+// an empty box instead, while a real image file renders identically
+// everywhere and doubles as a nice bit of branding on empty states.
+function ImageOffIcon({ size = 40 }: { size?: number }) {
+  return (
+    <img
+      src="/oliva-icon.png"
+      alt=""
+      style={{ width: size, height: size, objectFit: 'contain', opacity: 0.5 }}
+    />
+  )
+}
+
+// Renders a recipe image with graceful fallback — handles both genuinely
+// broken URLs (onError, e.g. Facebook/Instagram hotlink protection
+// blocking the request) and "hotlink protection" placeholder images some
+// sites serve instead of the real photo, which load successfully but are
+// suspiciously small (caught via onLoad). "compact" is a plain icon for
+// small card thumbnails; "full" (used on the recipe detail hero) shows an
+// explanatory message too, since there's enough room for it there.
+function RecipeImage({
+  src, alt, size = 48, variant = 'compact'
+}: { src: string | null; alt: string; size?: number; variant?: 'compact' | 'full' }) {
+  const [broken, setBroken] = useState(false)
+  const failed = !src || broken
+
+  if (failed && variant === 'full') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', padding: '1rem', textAlign: 'center' }}>
+        <ImageOffIcon size={44} />
+        <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: COLORS.secondary, fontFamily: 'var(--font-manrope)' }}>
+          {src ? "Photo couldn't be loaded" : 'No photo for this one yet'}
+        </p>
+        <p style={{ margin: 0, fontSize: '0.75rem', color: '#8a8378', fontFamily: 'var(--font-manrope)', maxWidth: 260 }}>
+          {src
+            ? "The original source is blocking this image from loading here."
+            : 'This recipe was saved without a photo.'}
+        </p>
+      </div>
+    )
+  }
+
+  if (failed) {
+    return <ImageOffIcon size={size} />
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onError={() => setBroken(true)}
+      onLoad={(e) => {
+        const img = e.currentTarget
+        if (img.naturalWidth < 150 || img.naturalHeight < 150) setBroken(true)
+      }}
+      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+    />
+  )
+}
+
 function formatMinutes(mins: number | null | undefined): string | null {
   if (!mins || mins <= 0) return null
   if (mins < 60) return `${mins} min`
@@ -177,6 +239,26 @@ export default function RecipePage() {
 
   const estimateCalories = async () => {
     if (!recipe) return
+
+    // Estimating without a known serving count would silently divide the
+    // WHOLE recipe's calories by 1 and label it "per serving" — badly
+    // misleading for anything but a single-portion recipe. Ask instead of
+    // guessing, and save the answer so the Servings badge is fixed too.
+    let servingsToUse = recipe.servings ?? null
+    if (!servingsToUse) {
+      const input = window.prompt(
+        "This recipe doesn't have a servings count yet, so a calorie estimate would be misleading (it'd show the whole recipe's total, not a per-serving figure).\n\nHow many servings does this recipe make?"
+      )
+      const parsed = input ? parseInt(input, 10) : NaN
+      if (!input || isNaN(parsed) || parsed <= 0) {
+        setCalorieNote('Estimate cancelled — a valid servings count is needed first.')
+        return
+      }
+      servingsToUse = parsed
+      await supabase.from('recipes').update({ servings: parsed }).eq('id', recipe.id)
+      setRecipe((prev: any) => ({ ...prev, servings: parsed }))
+    }
+
     const parsedIngredients = parseIngredients(recipe.ingredients)
 
     // Only structured entries carry quantity/unit — legacy plain-string
@@ -200,7 +282,7 @@ export default function RecipePage() {
       const res = await fetch('/api/estimate-calories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ingredients: apiIngredients, servings: recipe.servings ?? null }),
+        body: JSON.stringify({ ingredients: apiIngredients, servings: servingsToUse }),
       })
       const result = await res.json()
 
@@ -271,13 +353,13 @@ export default function RecipePage() {
 
       <main style={{ maxWidth: 780, margin: '0 auto', padding: '2.5rem 1rem' }}>
 
-        {/* Image — contained, not full width */}
-        {recipe.image && (
-          <div style={{ width: '100%', height: 280, overflow: 'hidden', borderRadius: 16, marginBottom: '1.5rem', border: '1px solid #eee3d8' }}>
-            <img src={recipe.image} alt={recipe.title}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          </div>
-        )}
+        {/* Image — contained, not full width. Always rendered (not just
+            when recipe.image exists) so recipes with no image at all get
+            the same olive placeholder as ones with a broken/blocked URL,
+            instead of no box appearing at all. */}
+        <div style={{ width: '100%', height: 280, overflow: 'hidden', borderRadius: 16, marginBottom: '1.5rem', border: '1px solid #eee3d8', background: '#f1e9dd', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <RecipeImage src={recipe.image} alt={recipe.title} variant="full" />
+        </div>
 
         {/* Title */}
         <h1 style={{

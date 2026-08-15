@@ -30,6 +30,44 @@ const STYLE_TAGS = ['vegetarian', 'healthy', 'quick', 'seafood']
 
 const CARD_COLORS = ['#b5543a', '#9d5a4a', '#7a8a3f', '#c9a876', '#6b5d8a', '#5c614d', '#8f5a3c']
 
+// The "missing image" fallback uses the actual Oliva logo mark rather than
+// an emoji or generic icon — some browsers/OS combos (older Windows Chrome
+// in particular) don't have a font covering newer emoji like 🫒 and render
+// an empty box instead, while a real image file renders identically
+// everywhere and doubles as a nice bit of branding on empty states.
+function ImageOffIcon({ size = 40 }: { size?: number }) {
+  return (
+    <img
+      src="/oliva-icon.png"
+      alt=""
+      style={{ width: size, height: size, objectFit: 'contain', opacity: 0.5 }}
+    />
+  )
+}
+
+// Renders a recipe image with graceful fallback to an icon — handles both
+// genuinely broken URLs (onError) and "hotlink protection" placeholder
+// images some sites serve instead of the real photo, which load
+// successfully but are suspiciously small (caught via onLoad).
+function RecipeImage({ src, alt, size = 40 }: { src: string | null; alt: string; size?: number }) {
+  const [broken, setBroken] = useState(false)
+  if (!src || broken) {
+    return <ImageOffIcon size={size} />
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onError={() => setBroken(true)}
+      onLoad={(e) => {
+        const img = e.currentTarget
+        if (img.naturalWidth < 150 || img.naturalHeight < 150) setBroken(true)
+      }}
+      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+    />
+  )
+}
+
 export default function RecipesPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -347,15 +385,8 @@ export default function RecipesPage() {
                       ;(e.currentTarget as HTMLDivElement).style.boxShadow = 'none'
                     }}
                   >
-                    <div style={{ width: '100%', height: 180, background: '#f1e9dd', overflow: 'hidden' }}>
-                      {recipe.image ? (
-                        <img src={recipe.image} alt={recipe.title}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem' }}>
-                          🫒
-                        </div>
-                      )}
+                    <div style={{ width: '100%', height: 180, background: '#f1e9dd', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <RecipeImage src={recipe.image} alt={recipe.title} size={44} />
                     </div>
 
                     <div style={{ padding: '1.1rem' }}>

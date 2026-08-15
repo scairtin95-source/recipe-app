@@ -49,11 +49,21 @@ function decodeHtmlEntities(text: string | null): string {
 // Renders a recipe image with graceful fallback to an icon — handles both
 // genuinely broken URLs (onError) and "hotlink protection" placeholder
 // images some sites serve instead of the real photo, which load
-// successfully but are suspiciously small (caught via onLoad).
-function RecipeImage({ src, alt, fontSize = '2rem' }: { src: string | null; alt: string; fontSize?: string }) {
+// successfully but are suspiciously small (caught via onLoad). The
+// fallback uses the actual Oliva logo mark rather than an emoji — some
+// browsers/OS combos (older Windows Chrome in particular) don't have a
+// font covering newer emoji like 🫒 and render an empty box instead, while
+// a real image file renders identically everywhere.
+function RecipeImage({ src, alt, size = 32 }: { src: string | null; alt: string; size?: number }) {
   const [broken, setBroken] = useState(false)
   if (!src || broken) {
-    return <span style={{ fontSize }}>🫒</span>
+    return (
+      <img
+        src="/oliva-icon.png"
+        alt=""
+        style={{ width: size, height: size, objectFit: 'contain', opacity: 0.5 }}
+      />
+    )
   }
   return (
     <img
@@ -356,7 +366,7 @@ export default function Home() {
                 <Link key={recipe.id} href={`/recipes/${recipe.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                   <div style={{ display: 'flex', gap: '1rem', background: '#fff', borderRadius: 16, overflow: 'hidden', border: `1px solid ${COLORS.border}` }}>
                     <div style={{ width: 100, height: 100, flexShrink: 0, background: '#e8dcc4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <RecipeImage src={recipe.image} alt={decodeHtmlEntities(recipe.title)} fontSize="1.4rem" />
+                      <RecipeImage src={recipe.image} alt={decodeHtmlEntities(recipe.title)} size={26} />
                     </div>
                     <div style={{ padding: '0.9rem 1rem 0.9rem 0' }}>
                       <p style={{ fontFamily: 'var(--font-newsreader)', fontSize: '0.95rem', fontWeight: 700, color: '#2c2c2c', margin: '0 0 0.4rem' }}>
