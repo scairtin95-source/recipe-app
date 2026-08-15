@@ -29,7 +29,20 @@ Respond with ONLY the comma separated tags, nothing else.`,
     });
 
     const data = await response.json();
+
+    // Anthropic's API can return a 200-with-error-body in some cases, or
+    // a non-2xx status — either way, log the actual response so failures
+    // are visible instead of silently producing empty tags.
+    if (!response.ok) {
+      console.error('suggest-tags: Anthropic API error', response.status, JSON.stringify(data));
+      return NextResponse.json({ tags: '', debugError: data }, { status: 200 });
+    }
+
     const tags = data.content?.[0]?.text?.trim() || '';
+
+    if (!tags) {
+      console.error('suggest-tags: got 200 but no usable text in response', JSON.stringify(data));
+    }
 
     return NextResponse.json({ tags });
   } catch (error) {
