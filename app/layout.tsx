@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Newsreader, Manrope } from "next/font/google";
 import "./globals.css";
 import Nav from "./nav";
+import { AuthProvider, AuthGuard } from "../src/lib/AuthContext";
 
 const newsreader = Newsreader({
   variable: "--font-newsreader",
@@ -15,7 +16,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "The Olive Table",
+  title: "Oliva",
   description: "A personal collection of recipes, saved and savored.",
 };
 
@@ -26,9 +27,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${newsreader.variable} ${manrope.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col" style={{ fontFamily: 'var(--font-manrope)' }}>
-  <Nav />
-  {children}
-</body>
+        <AuthProvider>
+          <AuthGuard>
+            <Nav />
+            {children}
+          </AuthGuard>
+        </AuthProvider>
+      </body>
     </html>
   );
 }

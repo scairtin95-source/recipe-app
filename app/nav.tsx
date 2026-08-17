@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
+import { useAuth } from '../src/lib/AuthContext'
 
 const COLORS = {
   primary: '#9D3D2E',
@@ -17,6 +18,11 @@ const COLORS = {
 export default function Nav() {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const { user, signOut } = useAuth()
+
+  // The login page has its own centered layout — no header needed there.
+  if (pathname === '/login') return null
 
   const linkStyle = (active: boolean) => ({
     color: COLORS.text,
@@ -46,6 +52,13 @@ export default function Nav() {
     { href: '/pantry', label: 'Pantry' },
     { href: '/about', label: 'About' },
   ]
+
+  const handleSignOut = async () => {
+    setProfileOpen(false)
+    setMenuOpen(false)
+    await signOut()
+    // AuthGuard picks up the cleared session and redirects to /login.
+  }
 
   return (
     <header
@@ -114,12 +127,46 @@ export default function Nav() {
           Add Recipe
         </Link>
 
-        <div aria-label="Profile" className="oliva-desktop-links" style={{ color: COLORS.text, display: 'flex', cursor: 'pointer' }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <circle cx="12" cy="12" r="10" />
-            <circle cx="12" cy="9" r="3.2" />
-            <path d="M5.5 19.5c1.5-3 4-4.2 6.5-4.2s5 1.2 6.5 4.2" />
-          </svg>
+        {/* Profile — desktop only, opens a small dropdown with sign out */}
+        <div className="oliva-desktop-links" style={{ position: 'relative' }}>
+          <button
+            aria-label="Profile"
+            onClick={() => setProfileOpen((v) => !v)}
+            style={{ color: COLORS.text, display: 'flex', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <circle cx="12" cy="12" r="10" />
+              <circle cx="12" cy="9" r="3.2" />
+              <path d="M5.5 19.5c1.5-3 4-4.2 6.5-4.2s5 1.2 6.5 4.2" />
+            </svg>
+          </button>
+
+          {profileOpen && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 0.6rem)', right: 0,
+              background: '#fff', border: `1px solid ${COLORS.border}`, borderRadius: 12,
+              boxShadow: '0 8px 20px rgba(0,0,0,0.08)', padding: '0.75rem', minWidth: 200, zIndex: 50,
+            }}>
+              {user?.email && (
+                <p style={{
+                  fontSize: '0.75rem', color: '#8a8378', margin: '0 0 0.6rem',
+                  fontFamily: 'var(--font-manrope)', wordBreak: 'break-all'
+                }}>
+                  Signed in as<br /><span style={{ color: COLORS.text, fontWeight: 600 }}>{user.email}</span>
+                </p>
+              )}
+              <button
+                onClick={handleSignOut}
+                style={{
+                  width: '100%', padding: '0.5rem 0.75rem', borderRadius: 8, border: 'none',
+                  background: COLORS.neutral, color: COLORS.primary, fontSize: '0.85rem', fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'var(--font-manrope)', textAlign: 'left'
+                }}
+              >
+                Log out
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Hamburger — visible on mobile only */}
@@ -176,15 +223,22 @@ export default function Nav() {
               {link.label}
             </Link>
           ))}
-          <div style={{ padding: '0.85rem 1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={COLORS.text} strokeWidth="1.8">
-              <circle cx="12" cy="12" r="10" />
-              <circle cx="12" cy="9" r="3.2" />
-              <path d="M5.5 19.5c1.5-3 4-4.2 6.5-4.2s5 1.2 6.5 4.2" />
-            </svg>
-            <span style={{ fontSize: '0.95rem', color: COLORS.text, fontFamily: 'var(--font-manrope)' }}>
-              Profile
-            </span>
+          <div style={{ padding: '0.85rem 1.25rem' }}>
+            {user?.email && (
+              <p style={{ fontSize: '0.8rem', color: '#8a8378', margin: '0 0 0.6rem', fontFamily: 'var(--font-manrope)' }}>
+                Signed in as <span style={{ color: COLORS.text, fontWeight: 600 }}>{user.email}</span>
+              </p>
+            )}
+            <button
+              onClick={handleSignOut}
+              style={{
+                width: '100%', padding: '0.6rem 0.9rem', borderRadius: 8, border: `1.5px solid ${COLORS.border}`,
+                background: '#fff', color: COLORS.primary, fontSize: '0.9rem', fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'var(--font-manrope)', textAlign: 'left'
+              }}
+            >
+              Log out
+            </button>
           </div>
         </div>
       )}
