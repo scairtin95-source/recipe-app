@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../src/lib/supabase'
+import { useAuth } from '../../src/lib/AuthContext'
 
 const COLORS = {
   primary: '#9D3D2E',
@@ -29,12 +30,18 @@ const CATEGORY_ICONS: Record<string, string> = {
 }
 
 export default function PantryPage() {
+  const { user } = useAuth()
   const [items, setItems] = useState<PantryItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [newName, setNewName] = useState('')
   const [newCategory, setNewCategory] = useState('')
   const [adding, setAdding] = useState(false)
+
+  // Tracks which categories have been expanded past the default 6-item
+  // preview. Search results always show everything regardless of this
+  // state, since a filtered list is already short by definition.
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
 
   async function loadItems() {
     setIsLoading(true)
@@ -73,11 +80,11 @@ export default function PantryPage() {
   }
 
   async function addItem() {
-    if (!newName.trim() || !newCategory.trim()) return
+    if (!newName.trim() || !newCategory.trim() || !user) return
     setAdding(true)
     const { error } = await supabase
       .from('pantry_items')
-      .insert([{ name: newName.trim(), category: newCategory.trim(), have_it: true }])
+      .insert([{ name: newName.trim(), category: newCategory.trim(), have_it: true, user_id: user.id }])
     if (!error) {
       setNewName('')
       await loadItems()
@@ -85,7 +92,17 @@ export default function PantryPage() {
     setAdding(false)
   }
 
+  function toggleExpanded(category: string) {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev)
+      if (next.has(category)) next.delete(category)
+      else next.add(category)
+      return next
+    })
+  }
+
   const categories = Object.keys(grouped).sort()
+  const isSearching = searchQuery.trim().length > 0
 
   return (
     <div style={{ minHeight: '100vh', background: '#f4efe4', fontFamily: 'var(--font-manrope)' }}>
@@ -131,6 +148,10 @@ export default function PantryPage() {
           }}>
             {categories.map((category) => {
               const catItems = grouped[category]
+              const expanded = isSearching || expandedCategories.has(category)
+              const visibleItems = expanded ? catItems : catItems.slice(0, 6)
+              const hiddenCount = catItems.length - visibleItems.length
+
               return (
                 <div key={category} style={{
                   background: '#fff', borderRadius: 16, overflow: 'hidden',
@@ -158,7 +179,7 @@ export default function PantryPage() {
                       {catItems.length} item{catItems.length === 1 ? '' : 's'}
                     </p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
-                      {catItems.slice(0, 6).map((item) => (
+                      {visibleItems.map((item) => (
                         <div key={item.id} style={{
                           display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                         }}>
@@ -187,10 +208,29 @@ export default function PantryPage() {
                           </button>
                         </div>
                       ))}
-                      {catItems.length > 6 && (
-                        <p style={{ fontSize: '0.75rem', color: '#8a8378', margin: 0 }}>
-                          +{catItems.length - 6} more
-                        </p>
+                      {!isSearching && hiddenCount > 0 && (
+                        <button
+                          onClick={() => toggleExpanded(category)}
+                          style={{
+                            background: 'none', border: 'none', padding: 0,
+                            fontSize: '0.75rem', color: COLORS.primary, fontWeight: 600,
+                            cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-manrope)'
+                          }}
+                        >
+                          +{hiddenCount} more
+                        </button>
+                      )}
+                      {!isSearching && expanded && catItems.length > 6 && (
+                        <button
+                          onClick={() => toggleExpanded(category)}
+                          style={{
+                            background: 'none', border: 'none', padding: 0,
+                            fontSize: '0.75rem', color: '#8a8378', fontWeight: 600,
+                            cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-manrope)'
+                          }}
+                        >
+                          Show less
+                        </button>
                       )}
                     </div>
                   </div>

@@ -14,10 +14,6 @@ const COLORS = {
   neutral: '#FDF8F5',
 }
 
-// A structured ingredient produced by the updated parser. Older recipes
-// (parsed before this change) store plain strings instead — both shapes
-// are supported everywhere below until the migration pass normalizes
-// existing recipes.
 interface StructuredIngredient {
   quantity: number | null
   unit: string | null
@@ -66,9 +62,6 @@ function parseList(raw: string | null): string[] {
   return raw.split('\n').map(s => s.trim()).filter(Boolean)
 }
 
-// Legacy conversion — regex over raw ingredient/step text. Still used for
-// steps (which are always plain text) and for any legacy ingredient lines
-// that haven't been migrated to structured form yet.
 function convertToImperial(text: string): string {
   return text
     .replace(/(\d+(?:\.\d+)?)\s*ml/g, (_, n) => `${Math.round(parseFloat(n) * 0.034)} fl oz`)
@@ -78,9 +71,6 @@ function convertToImperial(text: string): string {
     .replace(/(\d+(?:\.\d+)?)\s*°C/g, (_, n) => `${Math.round(parseFloat(n) * 9/5 + 32)}°F`)
 }
 
-// Structured conversion — operates on the actual numeric quantity + unit
-// rather than pattern-matching text, so it's exact regardless of how the
-// original recipe phrased things.
 const UNIT_CONVERSIONS: Record<string, { toUnit: string; factor: number }> = {
   ml: { toUnit: 'fl oz', factor: 0.034 },
   l: { toUnit: 'cups', factor: 4.227 },
@@ -105,10 +95,6 @@ function convertStructuredQuantity(
   return { quantity, unit }
 }
 
-// Cooking measurements (cups, tbsp, tsp) are conventionally read as
-// fractions, not decimals — "1½ cups" reads naturally, "1.5 cups" doesn't.
-// Everything else (weights, volumes in ml/l, plain counts) is rounded to a
-// clean decimal instead, since fractions of a gram aren't meaningful.
 const FRACTION_UNITS = new Set(['cup', 'cups', 'tbsp', 'tablespoon', 'tsp', 'teaspoon'])
 const NICE_FRACTIONS: [number, string][] = [
   [1 / 8, '⅛'], [1 / 4, '¼'], [1 / 3, '⅓'], [3 / 8, '⅜'], [1 / 2, '½'],
@@ -126,7 +112,6 @@ function formatAsFraction(qty: number): string {
     const diff = Math.abs(frac - f[0])
     if (diff < minDiff) { minDiff = diff; closest = f }
   }
-  // Fraction rounded up to a whole number (e.g. 0.96 → nearest is "1", not a fraction glyph)
   if (closest[0] >= 0.95) return String(whole + 1)
   return whole > 0 ? `${whole}${closest[1]}` : closest[1]
 }
@@ -145,19 +130,13 @@ function formatQuantityForDisplay(qty: number, unit: string | null): string {
 
 function formatIngredientLine(entry: IngredientEntry, imperial: boolean, scale: number): string {
   if (!isStructured(entry)) {
-    // Legacy plain-text lines can't be scaled (no isolated quantity to
-    // multiply) — shown as-is regardless of the scale factor.
     return imperial ? convertToImperial(entry) : entry
   }
   if (entry.quantity === null) {
-    // No clean quantity at all — can't scale a vague amount like "a pinch"
-    // or "to taste".
     return imperial ? convertToImperial(entry.raw || entry.item) : (entry.raw || entry.item)
   }
   const scaledQuantity = entry.quantity * scale
   if (!entry.unit) {
-    // Countable item with no unit (e.g. "2 onions", "3 eggs") — scales
-    // fine by simple multiplication, just has no unit to convert.
     return `${formatQuantityForDisplay(scaledQuantity, null)} ${entry.item}`.trim()
   }
   const { quantity, unit } = convertStructuredQuantity(scaledQuantity, entry.unit, imperial)
@@ -185,20 +164,13 @@ function parseIntOrNull(value: string): number | null {
   return isNaN(n) || n <= 0 ? null : n
 }
 
-// --- Edit-mode ingredient row helpers -------------------------------------
-//
-// Each row holds quantity/unit/item as separate editable fields so a
-// structured ingredient never has to collapse into free text just to be
-// edited. A row only "downgrades" to a legacy plain-string ingredient if
-// its quantity field is left blank when saved.
-
 interface EditIngredientRow {
   id: string
-  quantity: string   // string for controlled input; '' means "no quantity"
+  quantity: string
   unit: string
   item: string
   gramsPerUnit: number | null
-  originalUnit: string | null // used to decide whether gramsPerUnit is still valid
+  originalUnit: string | null
 }
 
 let rowIdCounter = 0
@@ -228,10 +200,6 @@ function ingredientToRow(entry: IngredientEntry): EditIngredientRow {
   }
 }
 
-// Converts the edit rows back into IngredientEntry[] for saving. A row
-// with a valid quantity becomes a structured entry (preserving
-// gramsPerUnit if the unit wasn't changed); a row with a blank quantity
-// becomes a plain string. Rows with no item text at all are dropped.
 function rowsToIngredients(rows: EditIngredientRow[]): IngredientEntry[] {
   return rows
     .filter((row) => row.item.trim() !== '')
@@ -266,11 +234,6 @@ function ingredientsEqual(a: IngredientEntry[], b: IngredientEntry[]): boolean {
   return a.every((entry, i) => canonicalizeIngredient(entry) === canonicalizeIngredient(b[i]))
 }
 
-// The "missing image" fallback uses the actual Oliva logo mark rather than
-// an emoji or generic icon — some browsers/OS combos (older Windows Chrome
-// in particular) don't have a font covering newer emoji like 🫒 and render
-// an empty box instead, while a real image file renders identically
-// everywhere and doubles as a nice bit of branding on empty states.
 function ImageOffIcon({ size = 40 }: { size?: number }) {
   return (
     <img
@@ -281,31 +244,10 @@ function ImageOffIcon({ size = 40 }: { size?: number }) {
   )
 }
 
-// Below this size, an image is almost certainly a hotlink-protection
-// placeholder rather than a real photo.
 const BROKEN_IMAGE_THRESHOLD = 150
-
-// Below this width or height, a real photo exists but doesn't have enough
-// resolution to fill the hero container edge-to-edge without visible
-// upscaling/blur. Rather than stretch it, it's shown at native size,
-// centered, letterboxed on the surrounding placeholder background.
-// Thresholds approximate the hero's typical rendered size (~700px wide,
-// fixed 280px tall) rather than measuring the live container — a
-// borderline image might letterbox on desktop when it would've fit fine
-// on a narrower mobile layout, but erring toward letterbox over blur is
-// the safer trade either way.
 const LOW_RES_WIDTH_THRESHOLD = 700
 const LOW_RES_HEIGHT_THRESHOLD = 280
 
-// Renders a recipe image with graceful fallback — handles both genuinely
-// broken URLs (onError, e.g. Facebook/Instagram hotlink protection
-// blocking the request) and "hotlink protection" placeholder images some
-// sites serve instead of the real photo, which load successfully but are
-// suspiciously small (caught via onLoad). "compact" is a plain icon for
-// small card thumbnails; "full" (used on the recipe detail hero) shows an
-// explanatory message too, since there's enough room for it there. Photos
-// that load fine but are too low-res to fill the hero without blurring are
-// letterboxed at native size instead of stretched.
 function RecipeImage({
   src, alt, size = 48, variant = 'compact'
 }: { src: string | null; alt: string; size?: number; variant?: 'compact' | 'full' }) {
@@ -344,8 +286,6 @@ function RecipeImage({
           setBroken(true)
           return
         }
-        // Only letterbox on the full hero — compact card thumbnails are
-        // small enough that native resolution basically never falls short.
         if (variant === 'full' && (img.naturalWidth < LOW_RES_WIDTH_THRESHOLD || img.naturalHeight < LOW_RES_HEIGHT_THRESHOLD)) {
           setLowRes(true)
         }
@@ -367,7 +307,6 @@ function formatMinutes(mins: number | null | undefined): string | null {
   return rest > 0 ? `${hours} hr ${rest} min` : `${hours} hr`
 }
 
-// Shared input style for the edit form
 const editInputStyle: React.CSSProperties = {
   width: '100%', padding: '0.5rem 0.7rem', borderRadius: 8,
   border: '1.5px solid #e5ddd3', fontFamily: 'var(--font-manrope)',
@@ -392,7 +331,6 @@ export default function RecipePage() {
   const [estimatingCalories, setEstimatingCalories] = useState(false)
   const [calorieNote, setCalorieNote] = useState<string | null>(null)
 
-  // Edit mode state
   const [editMode, setEditMode] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editTitle, setEditTitle] = useState('')
@@ -405,6 +343,7 @@ export default function RecipePage() {
   const [editCookTime, setEditCookTime] = useState('')
   const [editTotalTime, setEditTotalTime] = useState('')
   const [editServings, setEditServings] = useState('')
+  const [editIsPrivate, setEditIsPrivate] = useState(false)
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -442,10 +381,6 @@ export default function RecipePage() {
   const estimateCalories = async () => {
     if (!recipe) return
 
-    // Estimating without a known serving count would silently divide the
-    // WHOLE recipe's calories by 1 and label it "per serving" — badly
-    // misleading for anything but a single-portion recipe. Ask instead of
-    // guessing, and save the answer so the Servings badge is fixed too.
     let servingsToUse = recipe.servings ?? null
     if (!servingsToUse) {
       const input = window.prompt(
@@ -463,9 +398,6 @@ export default function RecipePage() {
 
     const parsedIngredients = parseIngredients(recipe.ingredients)
 
-    // Only structured entries carry quantity/unit — legacy plain-string
-    // ingredients get passed through with nulls, which the API will
-    // simply skip rather than guess at.
     const apiIngredients: StructuredIngredient[] = parsedIngredients.map((entry) =>
       isStructured(entry)
         ? entry
@@ -521,9 +453,6 @@ export default function RecipePage() {
     setEstimatingCalories(false)
   }
 
-  // Populates the edit form from the currently loaded recipe and switches
-  // into edit mode. Scale is reset to 1x since ingredient amounts shown
-  // while editing are always the base (unscaled) quantities.
   const startEdit = () => {
     if (!recipe) return
     const currentIngredients = parseIngredients(recipe.ingredients)
@@ -539,6 +468,7 @@ export default function RecipePage() {
     setEditCookTime(recipe.cook_time_minutes ? String(recipe.cook_time_minutes) : '')
     setEditTotalTime(recipe.total_time_minutes ? String(recipe.total_time_minutes) : '')
     setEditServings(recipe.servings ? String(recipe.servings) : '')
+    setEditIsPrivate(recipe.is_private ?? false)
     setScale(1)
     setEditMode(true)
   }
@@ -580,11 +510,9 @@ export default function RecipePage() {
       cook_time_minutes: parseIntOrNull(editCookTime),
       total_time_minutes: parseIntOrNull(editTotalTime),
       servings: parseIntOrNull(editServings),
+      is_private: editIsPrivate,
     }
 
-    // Ingredients changed → the existing calorie/macro estimate no longer
-    // reflects what's actually in the recipe, so clear it rather than
-    // leave a stale, now-inaccurate figure displayed.
     if (ingredientsChanged) {
       updateObj.estimated_calories_per_serving = null
       updateObj.estimated_protein_g_per_serving = null
@@ -631,12 +559,8 @@ export default function RecipePage() {
   if (servings) metaBadges.push({ label: 'Servings', value: String(servings) })
   if (calories) metaBadges.push({ label: 'Calories', value: `~${calories} / serving` })
 
-  // Flat text lines for Cooking Mode, which expects string[] — derived
-  // from the same structured/legacy data so both views always agree.
   const ingredientLines = ingredients.map((entry) => formatIngredientLine(entry, imperial, scale))
 
-  // Live change-detection while editing, used to show the "estimate will
-  // be cleared" hint before the person actually hits Save.
   const editIngredientsChanged = editMode
     ? !ingredientsEqual(originalIngredientsSnapshot, rowsToIngredients(editIngredientRows))
     : false
@@ -646,12 +570,10 @@ export default function RecipePage() {
 
       <main style={{ maxWidth: 780, margin: '0 auto', padding: '2.5rem 1rem' }}>
 
-        {/* Image */}
         <div style={{ width: '100%', height: 280, overflow: 'hidden', borderRadius: 16, marginBottom: '1.5rem', border: '1px solid #eee3d8', background: '#f1e9dd', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <RecipeImage src={upgradeImageUrl(editMode ? editImage : recipe.image)} alt={decodeHtmlEntities(recipe.title)} variant="full" />
         </div>
 
-        {/* Title row + Edit toggle */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: editMode ? '1rem' : '0.5rem' }}>
           {editMode ? (
             <div style={{ flex: 1 }}>
@@ -669,6 +591,14 @@ export default function RecipePage() {
               fontFamily: 'var(--font-newsreader)'
             }}>
               {decodeHtmlEntities(recipe.title)}
+              {recipe.is_private && (
+                <span style={{
+                  marginLeft: '0.6rem', fontSize: '0.7rem', fontWeight: 700, color: COLORS.secondary,
+                  background: '#eef0e8', padding: '0.2rem 0.6rem', borderRadius: 999, verticalAlign: 'middle'
+                }}>
+                  🔒 Private
+                </span>
+              )}
             </h1>
           )}
 
@@ -688,7 +618,6 @@ export default function RecipePage() {
 
         {editMode ? (
           <>
-            {/* Image URL */}
             <div style={{ marginBottom: '1rem' }}>
               <label style={editLabelStyle}>Image URL</label>
               <input
@@ -700,7 +629,6 @@ export default function RecipePage() {
               />
             </div>
 
-            {/* Tags */}
             <div style={{ marginBottom: '1rem' }}>
               <label style={editLabelStyle}>Tags (comma separated)</label>
               <input
@@ -712,7 +640,17 @@ export default function RecipePage() {
               />
             </div>
 
-            {/* Time + servings row */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: COLORS.secondary, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={editIsPrivate}
+                  onChange={(e) => setEditIsPrivate(e.target.checked)}
+                />
+                Keep this recipe private (hidden from The Table)
+              </label>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
               <div>
                 <label style={editLabelStyle}>Prep (min)</label>
@@ -732,10 +670,6 @@ export default function RecipePage() {
               </div>
             </div>
 
-            {/* Ingredients editor — per-row quantity/unit/item so
-                structured ingredients never have to collapse into free
-                text just to be edited. Only rows left with a blank
-                quantity become plain legacy strings. */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1.5rem', marginBottom: '1.5rem', alignItems: 'start' }}>
               <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', border: '1px solid #eee3d8' }}>
                 <label style={editLabelStyle}>Ingredients</label>
@@ -816,7 +750,6 @@ export default function RecipePage() {
               </p>
             )}
 
-            {/* Save / Cancel */}
             <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
               <button
                 onClick={saveEdit}
@@ -859,8 +792,6 @@ export default function RecipePage() {
               </a>
             )}
 
-            {/* Meta badges: prep/cook/total time, servings, calories — only
-                rendered once the parser/migration has populated them */}
             {metaBadges.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.5rem' }}>
                 {metaBadges.map((badge) => (
@@ -889,8 +820,6 @@ export default function RecipePage() {
               </div>
             )}
 
-            {/* Macro breakdown — only shown once an estimate exists, sits
-                right under the badge row */}
             {(proteinG !== null || fatG !== null || carbsG !== null) && (
               <p style={{ fontSize: '0.8rem', color: '#8a8378', margin: '0 0 0.5rem' }}>
                 {[
@@ -901,8 +830,6 @@ export default function RecipePage() {
               </p>
             )}
 
-            {/* Estimate calories button — only shown when we don't already
-                have a figure, and there's at least one ingredient to work from */}
             {calories === null && ingredients.length > 0 && (
               <div style={{ marginBottom: '1.25rem' }}>
                 <button
@@ -925,7 +852,6 @@ export default function RecipePage() {
               </div>
             )}
 
-            {/* Add to Collection */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem',
               background: '#fff', border: '1px solid #eee3d8', borderRadius: 12, padding: '0.75rem 1rem'
@@ -979,7 +905,6 @@ export default function RecipePage() {
               Start Cooking Mode
             </button>
 
-            {/* Tags */}
             {tagList(recipe.tags).length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1.5rem' }}>
                 {tagList(recipe.tags).map((tag, i) => (
@@ -994,7 +919,6 @@ export default function RecipePage() {
               </div>
             )}
 
-            {/* Units toggle */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem', fontFamily: 'var(--font-manrope)' }}>
               <span style={{ fontSize: '0.85rem', color: COLORS.secondary, fontWeight: 500 }}>Units:</span>
               <button
@@ -1019,9 +943,6 @@ export default function RecipePage() {
               </button>
             </div>
 
-            {/* Scale control — only affects ingredient quantities, never
-                method steps, time, or temperature (those don't scale linearly).
-                Hidden entirely in edit mode — editing always shows base 1x amounts. */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '2rem', fontFamily: 'var(--font-manrope)', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.85rem', color: COLORS.secondary, fontWeight: 500 }}>Scale:</span>
               {[0.5, 1, 2, 3].map((mult) => (
@@ -1067,7 +988,6 @@ export default function RecipePage() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1.5rem' }}>
 
-              {/* Ingredients */}
               <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', border: '1px solid #eee3d8' }}>
                 <h2 style={{
                   fontSize: '0.85rem', fontWeight: 600, color: COLORS.tertiary,
@@ -1085,7 +1005,6 @@ export default function RecipePage() {
                 </ul>
               </div>
 
-              {/* Method */}
               <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', border: '1px solid #eee3d8' }}>
                 <h2 style={{
                   fontSize: '0.85rem', fontWeight: 600, color: COLORS.tertiary,

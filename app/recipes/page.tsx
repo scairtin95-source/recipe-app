@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../src/lib/supabase'
+import { useAuth } from '../../src/lib/AuthContext'
 
 interface Recipe {
   id: number
@@ -10,6 +11,7 @@ interface Recipe {
   source_url: string | null
   tags: string | null
   image: string | null
+  is_private: boolean
 }
 
 interface Collection {
@@ -69,6 +71,7 @@ function RecipeImage({ src, alt, size = 40 }: { src: string | null; alt: string;
 }
 
 export default function RecipesPage() {
+  const { user } = useAuth()
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -80,11 +83,19 @@ export default function RecipesPage() {
 
   useEffect(() => {
     async function loadRecipes() {
+      if (!user) return
       setIsLoading(true)
       setError(null)
+      // Explicitly scoped to the logged-in user's own recipes. RLS alone
+      // would now also permit reading non-private recipes from fellow
+      // Table members (see the "select_table_shared_recipes" policy) —
+      // this page is specifically "my recipes", so it filters back down
+      // rather than relying on RLS's wider allowance. The Table page is
+      // where the broader shared view lives instead.
       const { data, error } = await supabase
         .from('recipes')
-        .select('id, title, source_url, tags, image')
+        .select('id, title, source_url, tags, image, is_private')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
       if (error) {
         setError(error.message)
@@ -94,7 +105,7 @@ export default function RecipesPage() {
       setIsLoading(false)
     }
     loadRecipes()
-  }, [])
+  }, [user])
 
   useEffect(() => {
     async function loadCollections() {
@@ -408,6 +419,16 @@ function decodeHtmlEntities(text: string | null): string {
                       }}>
                         {decodeHtmlEntities(recipe.title) || 'Untitled recipe'}
                       </h2>
+                      
+                      {recipe.is_private && (
+                        <span style={{
+                          display: 'inline-block', fontSize: '0.65rem', fontWeight: 700, color: COLORS.secondary,
+                          background: '#eef0e8', padding: '0.15rem 0.55rem', borderRadius: 999, marginBottom: '0.4rem'
+                        }}>
+                          🔒 Private
+                        </span>
+                      )}
+      
 
                       {tagList(recipe.tags).length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.6rem' }}>

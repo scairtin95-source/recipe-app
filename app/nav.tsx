@@ -49,6 +49,7 @@ export default function Nav() {
   const navLinks = [
     { href: '/', label: 'Home' },
     { href: '/recipes', label: 'Recipes' },
+    { href: '/table', label: 'The Table' },
     { href: '/pantry', label: 'Pantry' },
     { href: '/about', label: 'About' },
   ]

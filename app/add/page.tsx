@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { supabase } from '../../src/lib/supabase'
+import { useAuth } from '../../src/lib/AuthContext'
 
 const COLORS = {
   primary: '#9D3D2E',
@@ -62,6 +63,7 @@ function formatMinutesShort(mins: number | null): string | null {
 }
 
 export default function Home() {
+  const { user } = useAuth()
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
 
@@ -143,6 +145,7 @@ export default function Home() {
 
   const saveRecipe = async () => {
     if (!title) { setMessage('Please enter a title'); return }
+    if (!user) { setMessage('You need to be logged in to save a recipe.'); return }
     setSaving(true)
 
     // Use the parser's structured data as-is if the ingredients text
@@ -166,6 +169,7 @@ export default function Home() {
         cook_time_minutes: cookTimeMinutes,
         total_time_minutes: totalTimeMinutes,
         servings,
+        user_id: user.id,
       }])
     if (error) {
       setMessage('Error saving: ' + error.message)
@@ -179,6 +183,7 @@ export default function Home() {
   }
 
   const addIngredientsToPantry = async (rawIngredients: string) => {
+    if (!user) return
     const lines = parseList(rawIngredients)
     if (lines.length === 0) return
 
@@ -192,6 +197,9 @@ export default function Home() {
       const items = json.items || []
       if (items.length === 0) return
 
+      // RLS already scopes this select to the current user's own pantry
+      // rows, so the dedup check below only ever compares against items
+      // this same user has already logged.
       const { data: existing } = await supabase.from('pantry_items').select('name')
       const existingNames = new Set(
         (existing || []).map((i: any) => i.name.trim().toLowerCase())
@@ -207,6 +215,7 @@ export default function Home() {
             name: item.name,
             category: item.category,
             have_it: false,
+            user_id: user.id,
           }))
         )
       }
