@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { supabase } from '../../../src/lib/supabase'
 import CookingMode from './CookingMode'
 import { upgradeImageUrl } from '../../../src/lib/imageUrl'
+import { useTranslation } from '../../../src/lib/i18n/LocaleContext'
 
 
 const COLORS = {
@@ -60,6 +61,27 @@ function parseList(raw: string | null): string[] {
     if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean)
   } catch {}
   return raw.split('\n').map(s => s.trim()).filter(Boolean)
+}
+
+// Swaps in translated item/step text while leaving quantity, unit, and
+// scaling data completely untouched — translation only ever touches
+// descriptive text, never the numbers that drive scaling/unit conversion.
+function applyTranslatedIngredients(entries: IngredientEntry[], translatedTexts: string[]): IngredientEntry[] {
+  return entries.map((entry, i) => {
+    const translatedText = translatedTexts[i]
+    if (translatedText === undefined) return entry
+    if (isStructured(entry)) {
+      return { ...entry, item: translatedText, raw: translatedText }
+    }
+    return translatedText
+  })
+}
+
+// Extracts just the translatable text from each ingredient entry — the
+// item name for structured entries, or the whole line for plain strings —
+// to send to the translation API.
+function ingredientTextsForTranslation(entries: IngredientEntry[]): string[] {
+  return entries.map((entry) => (isStructured(entry) ? (entry.item || entry.raw) : entry))
 }
 
 function convertToImperial(text: string): string {
@@ -249,8 +271,8 @@ const LOW_RES_WIDTH_THRESHOLD = 700
 const LOW_RES_HEIGHT_THRESHOLD = 280
 
 function RecipeImage({
-  src, alt, size = 48, variant = 'compact'
-}: { src: string | null; alt: string; size?: number; variant?: 'compact' | 'full' }) {
+  src, alt, size = 48, variant = 'compact', t
+}: { src: string | null; alt: string; size?: number; variant?: 'compact' | 'full'; t: (key: string) => string }) {
   const [broken, setBroken] = useState(false)
   const [lowRes, setLowRes] = useState(false)
   const failed = !src || broken
@@ -260,12 +282,10 @@ function RecipeImage({
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', padding: '1rem', textAlign: 'center' }}>
         <ImageOffIcon size={44} />
         <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: COLORS.secondary, fontFamily: 'var(--font-manrope)' }}>
-          {src ? "Photo couldn't be loaded" : 'No photo for this one yet'}
+          {src ? t('recipeDetail.photoFailed') : t('recipeDetail.noPhotoYet')}
         </p>
         <p style={{ margin: 0, fontSize: '0.75rem', color: '#8a8378', fontFamily: 'var(--font-manrope)', maxWidth: 260 }}>
-          {src
-            ? "The original source is blocking this image from loading here."
-            : 'This recipe was saved without a photo.'}
+          {src ? t('recipeDetail.photoBlockedHint') : t('recipeDetail.noPhotoHint')}
         </p>
       </div>
     )
@@ -299,12 +319,12 @@ function RecipeImage({
   )
 }
 
-function formatMinutes(mins: number | null | undefined): string | null {
+function formatMinutes(mins: number | null | undefined, minLabel: string, hrLabel: string): string | null {
   if (!mins || mins <= 0) return null
-  if (mins < 60) return `${mins} min`
+  if (mins < 60) return `${mins} ${minLabel}`
   const hours = Math.floor(mins / 60)
   const rest = mins % 60
-  return rest > 0 ? `${hours} hr ${rest} min` : `${hours} hr`
+  return rest > 0 ? `${hours} ${hrLabel} ${rest} ${minLabel}` : `${hours} ${hrLabel}`
 }
 
 const editInputStyle: React.CSSProperties = {
@@ -320,6 +340,7 @@ const editLabelStyle: React.CSSProperties = {
 
 export default function RecipePage() {
   const { id } = useParams()
+  const { t, locale } = useTranslation()
   const [recipe, setRecipe] = useState<any>(null)
   const [imperial, setImperial] = useState(false)
   const [scale, setScale] = useState(1)
@@ -345,6 +366,14 @@ export default function RecipePage() {
   const [editServings, setEditServings] = useState('')
   const [editIsPrivate, setEditIsPrivate] = useState(false)
 
+  // On-demand recipe translation. Automatic: when the UI locale isn't
+  // English, check for a cached translation for (recipe.id, locale); if
+  // none exists, generate one via Claude in the background and cache it,
+  // so the API is only ever called once per recipe per language.
+  const [translation, setTranslation] = useState<{ title: string; ingredients: string[]; steps: string[] } | null>(null)
+  const [translating, setTranslating] = useState(false)
+  const [showOriginal, setShowOriginal] = useState(false)
+
   useEffect(() => {
     const fetchRecipe = async () => {
       const { data } = await supabase
@@ -365,15 +394,90 @@ export default function RecipePage() {
     fetchCollections()
   }, [])
 
+  useEffect(() => {
+    if (!recipe) return
+
+    setShowOriginal(false)
+
+    // English is treated as the recipe corpus's base language, so there's
+    // nothing to translate to when the UI is in English.
+    if (locale === 'en') {
+      setTranslation(null)
+      return
+    }
+
+    let cancelled = false
+
+    async function loadOrCreateTranslation() {
+      const { data: cached } = await supabase
+        .from('recipe_translations')
+        .select('title, ingredients, steps')
+        .eq('recipe_id', recipe.id)
+        .eq('locale', locale)
+        .maybeSingle()
+
+      if (cancelled) return
+
+      if (cached) {
+        setTranslation({ title: cached.title, ingredients: cached.ingredients, steps: cached.steps })
+        return
+      }
+
+      setTranslation(null)
+
+      const currentIngredients = parseIngredients(recipe.ingredients)
+      const currentSteps = parseList(recipe.steps)
+      const ingredientTexts = ingredientTextsForTranslation(currentIngredients)
+
+      if (!recipe.title) return
+
+      setTranslating(true)
+      try {
+        const res = await fetch('/api/translate-recipe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            locale,
+            title: decodeHtmlEntities(recipe.title),
+            ingredients: ingredientTexts,
+            steps: currentSteps,
+          }),
+        })
+        const result = await res.json()
+        if (cancelled) return
+        if (result.title) {
+          setTranslation(result)
+          // Cache for next time — best-effort; a failed insert here (e.g.
+          // a race with another device) just means it re-translates next
+          // visit rather than reading from cache, which is harmless.
+          await supabase.from('recipe_translations').insert([{
+            recipe_id: recipe.id,
+            locale,
+            title: result.title,
+            ingredients: result.ingredients,
+            steps: result.steps,
+          }])
+        }
+      } catch (err) {
+        console.error('translateRecipe error:', err)
+      }
+      if (!cancelled) setTranslating(false)
+    }
+
+    loadOrCreateTranslation()
+
+    return () => { cancelled = true }
+  }, [recipe, locale])
+
   const addToCollection = async () => {
     if (!selectedCollection || !recipe) return
     const { error } = await supabase
       .from('collection_recipes')
       .insert([{ collection_id: Number(selectedCollection), recipe_id: Number(recipe.id) }])
     if (error) {
-      setAddStatus('Error adding')
+      setAddStatus(t('recipeDetail.errorAdding'))
     } else {
-      setAddStatus('Added!')
+      setAddStatus(t('recipeDetail.added'))
       setSelectedCollection('')
     }
   }
@@ -383,12 +487,10 @@ export default function RecipePage() {
 
     let servingsToUse = recipe.servings ?? null
     if (!servingsToUse) {
-      const input = window.prompt(
-        "This recipe doesn't have a servings count yet, so a calorie estimate would be misleading (it'd show the whole recipe's total, not a per-serving figure).\n\nHow many servings does this recipe make?"
-      )
+      const input = window.prompt(t('recipeDetail.servingsPromptMessage'))
       const parsed = input ? parseInt(input, 10) : NaN
       if (!input || isNaN(parsed) || parsed <= 0) {
-        setCalorieNote('Estimate cancelled — a valid servings count is needed first.')
+        setCalorieNote(t('recipeDetail.estimateCancelled'))
         return
       }
       servingsToUse = parsed
@@ -405,7 +507,7 @@ export default function RecipePage() {
     )
 
     if (apiIngredients.length === 0) {
-      setCalorieNote('No ingredients to estimate from.')
+      setCalorieNote(t('recipeDetail.noIngredientsToEstimate'))
       return
     }
 
@@ -421,7 +523,7 @@ export default function RecipePage() {
       const result = await res.json()
 
       if (result.estimatedCaloriesPerServing == null) {
-        setCalorieNote(result.error || "Couldn't estimate calories for this recipe.")
+        setCalorieNote(result.error || t('recipeDetail.estimateFailedGeneric'))
       } else {
         await supabase
           .from('recipes')
@@ -441,13 +543,13 @@ export default function RecipePage() {
           estimated_carbs_g_per_serving: result.estimatedCarbsGPerServing,
         }))
 
-        const parts = [`Based on ${result.matchedCount} of ${result.totalCount} ingredients`]
-        if (!result.servingsWasKnown) parts.push('servings unknown — treated as 1')
+        const parts = [`${t('recipeDetail.basedOnPrefix')} ${result.matchedCount} ${t('recipeDetail.ofWord')} ${result.totalCount} ${t('recipeDetail.ingredientsWord')}`]
+        if (!result.servingsWasKnown) parts.push(t('recipeDetail.servingsUnknownNote'))
         setCalorieNote(parts.join(' · '))
       }
     } catch (err) {
       console.error('estimateCalories error:', err)
-      setCalorieNote('Something went wrong estimating calories.')
+      setCalorieNote(t('recipeDetail.estimateFailedError'))
     }
 
     setEstimatingCalories(false)
@@ -524,8 +626,14 @@ export default function RecipePage() {
 
     if (error) {
       console.error('saveEdit error:', error)
-      alert('Something went wrong saving your changes. Please try again.')
+      alert(t('recipeDetail.saveFailedAlert'))
     } else {
+      // Editing the title/ingredients/steps can make any cached
+      // translations stale — clear them so the next view regenerates
+      // fresh translations from the updated content rather than silently
+      // showing outdated text.
+      await supabase.from('recipe_translations').delete().eq('recipe_id', recipe.id)
+      setTranslation(null)
       setRecipe((prev: any) => ({ ...prev, ...updateObj }))
       if (ingredientsChanged) setCalorieNote(null)
       setEditMode(false)
@@ -536,16 +644,27 @@ export default function RecipePage() {
 
   if (!recipe) return (
     <div style={{ minHeight: '100vh', background: COLORS.neutral, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: '#8a8378', fontFamily: 'var(--font-manrope)' }}>Loading…</p>
+      <p style={{ color: '#8a8378', fontFamily: 'var(--font-manrope)' }}>{t('recipeDetail.loading')}</p>
     </div>
   )
 
-  const ingredients = parseIngredients(recipe.ingredients)
-  const steps = parseList(recipe.steps)
+  const showingTranslation = translation && !showOriginal
 
-  const prepTime = formatMinutes(recipe.prep_time_minutes)
-  const cookTime = formatMinutes(recipe.cook_time_minutes)
-  const totalTime = formatMinutes(recipe.total_time_minutes)
+  const baseIngredients = parseIngredients(recipe.ingredients)
+  const ingredients = showingTranslation
+    ? applyTranslatedIngredients(baseIngredients, translation!.ingredients)
+    : baseIngredients
+
+  const baseSteps = parseList(recipe.steps)
+  const steps = showingTranslation ? translation!.steps : baseSteps
+
+  const displayTitle = showingTranslation ? translation!.title : decodeHtmlEntities(recipe.title)
+
+  const minLabel = t('recipeDetail.minutesShort')
+  const hrLabel = t('recipeDetail.hoursShort')
+  const prepTime = formatMinutes(recipe.prep_time_minutes, minLabel, hrLabel)
+  const cookTime = formatMinutes(recipe.cook_time_minutes, minLabel, hrLabel)
+  const totalTime = formatMinutes(recipe.total_time_minutes, minLabel, hrLabel)
   const servings = recipe.servings ?? null
   const calories = recipe.estimated_calories_per_serving ?? null
   const proteinG = recipe.estimated_protein_g_per_serving ?? null
@@ -553,11 +672,11 @@ export default function RecipePage() {
   const carbsG = recipe.estimated_carbs_g_per_serving ?? null
 
   const metaBadges: { label: string; value: string }[] = []
-  if (prepTime) metaBadges.push({ label: 'Prep', value: prepTime })
-  if (cookTime) metaBadges.push({ label: 'Cook', value: cookTime })
-  if (totalTime) metaBadges.push({ label: 'Total', value: totalTime })
-  if (servings) metaBadges.push({ label: 'Servings', value: String(servings) })
-  if (calories) metaBadges.push({ label: 'Calories', value: `~${calories} / serving` })
+  if (prepTime) metaBadges.push({ label: t('recipeDetail.prep'), value: prepTime })
+  if (cookTime) metaBadges.push({ label: t('recipeDetail.cook'), value: cookTime })
+  if (totalTime) metaBadges.push({ label: t('recipeDetail.total'), value: totalTime })
+  if (servings) metaBadges.push({ label: t('recipe.servings'), value: String(servings) })
+  if (calories) metaBadges.push({ label: t('recipe.calories'), value: `~${calories} ${t('recipeDetail.perServing')}` })
 
   const ingredientLines = ingredients.map((entry) => formatIngredientLine(entry, imperial, scale))
 
@@ -571,13 +690,13 @@ export default function RecipePage() {
       <main style={{ maxWidth: 780, margin: '0 auto', padding: '2.5rem 1rem' }}>
 
         <div style={{ width: '100%', height: 280, overflow: 'hidden', borderRadius: 16, marginBottom: '1.5rem', border: '1px solid #eee3d8', background: '#f1e9dd', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <RecipeImage src={upgradeImageUrl(editMode ? editImage : recipe.image)} alt={decodeHtmlEntities(recipe.title)} variant="full" />
+          <RecipeImage src={upgradeImageUrl(editMode ? editImage : recipe.image)} alt={displayTitle} variant="full" t={t} />
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: editMode ? '1rem' : '0.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: editMode ? '1rem' : '0.25rem' }}>
           {editMode ? (
             <div style={{ flex: 1 }}>
-              <label style={editLabelStyle}>Title</label>
+              <label style={editLabelStyle}>{t('recipeDetail.titleLabel')}</label>
               <input
                 type="text"
                 value={editTitle}
@@ -590,13 +709,13 @@ export default function RecipePage() {
               fontSize: '2rem', fontWeight: 600, color: '#2c2c2c', margin: 0, lineHeight: 1.3,
               fontFamily: 'var(--font-newsreader)'
             }}>
-              {decodeHtmlEntities(recipe.title)}
+              {displayTitle}
               {recipe.is_private && (
                 <span style={{
                   marginLeft: '0.6rem', fontSize: '0.7rem', fontWeight: 700, color: COLORS.secondary,
                   background: '#eef0e8', padding: '0.2rem 0.6rem', borderRadius: 999, verticalAlign: 'middle'
                 }}>
-                  🔒 Private
+                  🔒 {t('common.private')}
                 </span>
               )}
             </h1>
@@ -611,31 +730,51 @@ export default function RecipePage() {
                 cursor: 'pointer', fontFamily: 'var(--font-manrope)', whiteSpace: 'nowrap'
               }}
             >
-              ✎ Edit recipe
+              ✎ {t('recipeDetail.editRecipe')}
             </button>
           )}
         </div>
 
+        {/* Translation status / toggle */}
+        {!editMode && (translating || translation) && (
+          <p style={{ fontSize: '0.75rem', color: '#8a8378', margin: '0 0 1rem' }}>
+            {translating && !translation ? (
+              t('recipeDetail.translating')
+            ) : translation ? (
+              <button
+                onClick={() => setShowOriginal((v) => !v)}
+                style={{
+                  background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                  color: COLORS.primary, fontFamily: 'var(--font-manrope)', fontSize: '0.75rem',
+                  textDecoration: 'underline'
+                }}
+              >
+                {showOriginal ? t('recipeDetail.showTranslation') : t('recipeDetail.showOriginal')}
+              </button>
+            ) : null}
+          </p>
+        )}
+
         {editMode ? (
           <>
             <div style={{ marginBottom: '1rem' }}>
-              <label style={editLabelStyle}>Image URL</label>
+              <label style={editLabelStyle}>{t('recipeDetail.imageUrlLabel')}</label>
               <input
                 type="text"
                 value={editImage}
                 onChange={(e) => setEditImage(e.target.value)}
-                placeholder="https://…"
+                placeholder={t('recipeDetail.imageUrlPlaceholder')}
                 style={editInputStyle}
               />
             </div>
 
             <div style={{ marginBottom: '1rem' }}>
-              <label style={editLabelStyle}>Tags (comma separated)</label>
+              <label style={editLabelStyle}>{t('recipeDetail.tagsLabel')}</label>
               <input
                 type="text"
                 value={editTags}
                 onChange={(e) => setEditTags(e.target.value)}
-                placeholder="breakfast, healthy, quick"
+                placeholder={t('recipeDetail.tagsPlaceholder')}
                 style={editInputStyle}
               />
             </div>
@@ -647,40 +786,40 @@ export default function RecipePage() {
                   checked={editIsPrivate}
                   onChange={(e) => setEditIsPrivate(e.target.checked)}
                 />
-                Keep this recipe private (hidden from The Table)
+                {t('recipe.keepPrivate')}
               </label>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
               <div>
-                <label style={editLabelStyle}>Prep (min)</label>
+                <label style={editLabelStyle}>{t('recipeDetail.prepMinLabel')}</label>
                 <input type="number" min={0} value={editPrepTime} onChange={(e) => setEditPrepTime(e.target.value)} style={editInputStyle} />
               </div>
               <div>
-                <label style={editLabelStyle}>Cook (min)</label>
+                <label style={editLabelStyle}>{t('recipeDetail.cookMinLabel')}</label>
                 <input type="number" min={0} value={editCookTime} onChange={(e) => setEditCookTime(e.target.value)} style={editInputStyle} />
               </div>
               <div>
-                <label style={editLabelStyle}>Total (min)</label>
+                <label style={editLabelStyle}>{t('recipeDetail.totalMinLabel')}</label>
                 <input type="number" min={0} value={editTotalTime} onChange={(e) => setEditTotalTime(e.target.value)} style={editInputStyle} />
               </div>
               <div>
-                <label style={editLabelStyle}>Servings</label>
+                <label style={editLabelStyle}>{t('recipe.servings')}</label>
                 <input type="number" min={0} value={editServings} onChange={(e) => setEditServings(e.target.value)} style={editInputStyle} />
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1.5rem', marginBottom: '1.5rem', alignItems: 'start' }}>
               <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', border: '1px solid #eee3d8' }}>
-                <label style={editLabelStyle}>Ingredients</label>
+                <label style={editLabelStyle}>{t('recipe.ingredients')}</label>
                 <p style={{ fontSize: '0.72rem', color: '#8a8378', margin: '0 0 0.85rem', lineHeight: 1.5 }}>
-                  Leave quantity blank for vague lines like "salt to taste." Otherwise, quantity + unit stay structured so scaling and unit conversion keep working.
+                  {t('recipeDetail.ingredientsHelper')}
                 </p>
 
                 <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.35rem', padding: '0 0.1rem' }}>
-                  <span style={{ width: 55, fontSize: '0.65rem', fontWeight: 700, color: '#8a8378', textTransform: 'uppercase' }}>Qty</span>
-                  <span style={{ width: 70, fontSize: '0.65rem', fontWeight: 700, color: '#8a8378', textTransform: 'uppercase' }}>Unit</span>
-                  <span style={{ flex: 1, fontSize: '0.65rem', fontWeight: 700, color: '#8a8378', textTransform: 'uppercase' }}>Ingredient</span>
+                  <span style={{ width: 55, fontSize: '0.65rem', fontWeight: 700, color: '#8a8378', textTransform: 'uppercase' }}>{t('recipeDetail.qtyColumn')}</span>
+                  <span style={{ width: 70, fontSize: '0.65rem', fontWeight: 700, color: '#8a8378', textTransform: 'uppercase' }}>{t('recipeDetail.unitColumn')}</span>
+                  <span style={{ flex: 1, fontSize: '0.65rem', fontWeight: 700, color: '#8a8378', textTransform: 'uppercase' }}>{t('recipeDetail.ingredientColumn')}</span>
                 </div>
 
                 {editIngredientRows.map((row) => (
@@ -688,28 +827,28 @@ export default function RecipePage() {
                     <input
                       type="number"
                       step="any"
-                      placeholder="—"
+                      placeholder={t('recipeDetail.qtyPlaceholder')}
                       value={row.quantity}
                       onChange={(e) => updateIngredientRow(row.id, { quantity: e.target.value })}
                       style={{ ...editInputStyle, width: 55, padding: '0.4rem 0.5rem' }}
                     />
                     <input
                       type="text"
-                      placeholder="unit"
+                      placeholder={t('recipeDetail.unitPlaceholder')}
                       value={row.unit}
                       onChange={(e) => updateIngredientRow(row.id, { unit: e.target.value })}
                       style={{ ...editInputStyle, width: 70, padding: '0.4rem 0.5rem' }}
                     />
                     <input
                       type="text"
-                      placeholder="ingredient"
+                      placeholder={t('recipeDetail.ingredientPlaceholder')}
                       value={row.item}
                       onChange={(e) => updateIngredientRow(row.id, { item: e.target.value })}
                       style={{ ...editInputStyle, flex: 1, padding: '0.4rem 0.5rem' }}
                     />
                     <button
                       onClick={() => removeIngredientRow(row.id)}
-                      title="Remove ingredient"
+                      title={t('recipeDetail.removeIngredient')}
                       style={{
                         flexShrink: 0, width: 28, height: 28, borderRadius: 6, border: '1.5px solid #eee3d8',
                         background: '#fff', color: COLORS.primary, fontSize: '0.9rem', fontWeight: 600,
@@ -729,12 +868,12 @@ export default function RecipePage() {
                     cursor: 'pointer', fontFamily: 'var(--font-manrope)'
                   }}
                 >
-                  + Add ingredient
+                  + {t('recipeDetail.addIngredient')}
                 </button>
               </div>
 
               <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', border: '1px solid #eee3d8' }}>
-                <label style={editLabelStyle}>Method (one step per line)</label>
+                <label style={editLabelStyle}>{t('recipeDetail.methodLabel')}</label>
                 <textarea
                   value={editStepsText}
                   onChange={(e) => setEditStepsText(e.target.value)}
@@ -746,7 +885,7 @@ export default function RecipePage() {
 
             {editIngredientsChanged && (
               <p style={{ fontSize: '0.75rem', color: '#8a8378', fontStyle: 'italic', margin: '-1rem 0 1rem' }}>
-                Ingredients changed — the saved calorie estimate will be cleared so it doesn't show a stale figure.
+                {t('recipeDetail.ingredientsChangedNote')}
               </p>
             )}
 
@@ -761,7 +900,7 @@ export default function RecipePage() {
                   opacity: saving ? 0.6 : 1
                 }}
               >
-                {saving ? 'Saving…' : 'Save changes'}
+                {saving ? t('recipeDetail.saving') : t('recipeDetail.saveChanges')}
               </button>
               <button
                 onClick={cancelEdit}
@@ -772,7 +911,7 @@ export default function RecipePage() {
                   cursor: saving ? 'default' : 'pointer', fontFamily: 'var(--font-manrope)'
                 }}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           </>
@@ -788,7 +927,7 @@ export default function RecipePage() {
                 fontWeight: 600,
                 marginBottom: '1rem'
               }}>
-                View original ↗
+                {t('recipeDetail.viewOriginal')} ↗
               </a>
             )}
 
@@ -814,7 +953,7 @@ export default function RecipePage() {
                   <span style={{
                     alignSelf: 'center', fontSize: '0.7rem', color: '#8a8378', fontStyle: 'italic'
                   }}>
-                    estimate
+                    {t('recipeDetail.estimateTag')}
                   </span>
                 )}
               </div>
@@ -823,9 +962,9 @@ export default function RecipePage() {
             {(proteinG !== null || fatG !== null || carbsG !== null) && (
               <p style={{ fontSize: '0.8rem', color: '#8a8378', margin: '0 0 0.5rem' }}>
                 {[
-                  proteinG !== null && `Protein ${proteinG}g`,
-                  carbsG !== null && `Carbs ${carbsG}g`,
-                  fatG !== null && `Fat ${fatG}g`,
+                  proteinG !== null && `${t('recipeDetail.proteinLabel')} ${proteinG}g`,
+                  carbsG !== null && `${t('recipeDetail.carbsLabel')} ${carbsG}g`,
+                  fatG !== null && `${t('recipeDetail.fatLabel')} ${fatG}g`,
                 ].filter(Boolean).join(' · ')}
               </p>
             )}
@@ -842,7 +981,7 @@ export default function RecipePage() {
                     opacity: estimatingCalories ? 0.6 : 1
                   }}
                 >
-                  {estimatingCalories ? 'Estimating…' : '🔥 Estimate calories'}
+                  {estimatingCalories ? t('recipeDetail.estimating') : `🔥 ${t('recipeDetail.estimateCalories')}`}
                 </button>
                 {calorieNote && (
                   <p style={{ fontSize: '0.75rem', color: '#8a8378', margin: '0.4rem 0 0' }}>
@@ -857,7 +996,7 @@ export default function RecipePage() {
               background: '#fff', border: '1px solid #eee3d8', borderRadius: 12, padding: '0.75rem 1rem'
             }}>
               <span style={{ fontSize: '0.85rem', color: COLORS.secondary, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                Add to collection:
+                {t('recipeDetail.addToCollectionLabel')}
               </span>
               <select
                 value={selectedCollection}
@@ -868,7 +1007,7 @@ export default function RecipePage() {
                   fontSize: '0.85rem', color: '#2c2c2c', background: '#fff'
                 }}
               >
-                <option value="">Select a collection…</option>
+                <option value="">{t('recipeDetail.selectCollectionPlaceholder')}</option>
                 {collections.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -883,7 +1022,7 @@ export default function RecipePage() {
                   opacity: selectedCollection ? 1 : 0.5, fontFamily: 'var(--font-manrope)'
                 }}
               >
-                Add
+                {t('recipeDetail.add')}
               </button>
               {addStatus && (
                 <span style={{ fontSize: '0.8rem', color: COLORS.secondary, whiteSpace: 'nowrap' }}>
@@ -902,7 +1041,7 @@ export default function RecipePage() {
                 marginBottom: '1.5rem'
               }}
             >
-              Start Cooking Mode
+              {t('recipeDetail.startCookingMode')}
             </button>
 
             {tagList(recipe.tags).length > 0 && (
@@ -920,7 +1059,7 @@ export default function RecipePage() {
             )}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem', fontFamily: 'var(--font-manrope)' }}>
-              <span style={{ fontSize: '0.85rem', color: COLORS.secondary, fontWeight: 500 }}>Units:</span>
+              <span style={{ fontSize: '0.85rem', color: COLORS.secondary, fontWeight: 500 }}>{t('recipeDetail.unitsLabel')}</span>
               <button
                 onClick={() => setImperial(false)}
                 style={{
@@ -929,7 +1068,7 @@ export default function RecipePage() {
                   background: !imperial ? COLORS.secondary : '#efe6d8',
                   color: !imperial ? '#fff' : COLORS.secondary
                 }}>
-                Metric
+                {t('recipeDetail.metric')}
               </button>
               <button
                 onClick={() => setImperial(true)}
@@ -939,12 +1078,12 @@ export default function RecipePage() {
                   background: imperial ? COLORS.secondary : '#efe6d8',
                   color: imperial ? '#fff' : COLORS.secondary
                 }}>
-                Imperial
+                {t('recipeDetail.imperial')}
               </button>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '2rem', fontFamily: 'var(--font-manrope)', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.85rem', color: COLORS.secondary, fontWeight: 500 }}>Scale:</span>
+              <span style={{ fontSize: '0.85rem', color: COLORS.secondary, fontWeight: 500 }}>{t('recipeDetail.scaleLabel')}</span>
               {[0.5, 1, 2, 3].map((mult) => (
                 <button
                   key={mult}
@@ -975,14 +1114,14 @@ export default function RecipePage() {
               />
               {servings && (
                 <span style={{ fontSize: '0.8rem', color: '#8a8378' }}>
-                  ≈ {Math.round(servings * scale)} servings
+                  ≈ {Math.round(servings * scale)} {t('recipeDetail.approxServings')}
                 </span>
               )}
             </div>
 
             {scale !== 1 && (
               <p style={{ fontSize: '0.75rem', color: '#8a8378', fontStyle: 'italic', margin: '-1.25rem 0 2rem' }}>
-                Cook time and oven temperature aren't adjusted automatically — a larger or smaller batch may need more or less time in the oven or on the stove.
+                {t('recipeDetail.scaleDisclaimer')}
               </p>
             )}
 
@@ -994,14 +1133,14 @@ export default function RecipePage() {
                   textTransform: 'uppercase', letterSpacing: '0.08em',
                   marginBottom: '1rem', fontFamily: 'var(--font-manrope)', margin: '0 0 1rem'
                 }}>
-                  Ingredients
+                  {t('recipe.ingredients')}
                 </h2>
                 <ul style={{ margin: 0, padding: '0 0 0 1.2rem', listStyle: 'disc' }}>
                   {ingredientLines.length > 0 ? ingredientLines.map((line, i) => (
                     <li key={i} style={{ fontSize: '0.9rem', color: '#3c3c3c', lineHeight: 1.8, marginBottom: '0.25rem' }}>
                       {line}
                     </li>
-                  )) : <li style={{ color: '#8a8378', fontSize: '0.9rem' }}>No ingredients saved.</li>}
+                  )) : <li style={{ color: '#8a8378', fontSize: '0.9rem' }}>{t('recipeDetail.noIngredientsSaved')}</li>}
                 </ul>
               </div>
 
@@ -1011,14 +1150,14 @@ export default function RecipePage() {
                   textTransform: 'uppercase', letterSpacing: '0.08em',
                   marginBottom: '1rem', fontFamily: 'var(--font-manrope)', margin: '0 0 1rem'
                 }}>
-                  Method
+                  {t('recipe.method')}
                 </h2>
                 <ol style={{ margin: 0, padding: '0 0 0 1.5rem', listStyleType: 'decimal' }}>
                   {steps.length > 0 ? steps.map((step, i) => (
                     <li key={i} style={{ fontSize: '0.9rem', color: '#3c3c3c', lineHeight: 1.8, marginBottom: '0.75rem' }}>
-                      {imperial ? convertToImperial(step) : step}
+                      {!showingTranslation && imperial ? convertToImperial(step) : step}
                     </li>
-                  )) : <li style={{ color: '#8a8378', fontSize: '0.9rem' }}>No steps saved.</li>}
+                  )) : <li style={{ color: '#8a8378', fontSize: '0.9rem' }}>{t('recipeDetail.noStepsSaved')}</li>}
                 </ol>
               </div>
 
@@ -1029,7 +1168,7 @@ export default function RecipePage() {
 
       {cookingMode && (
         <CookingMode
-          title={decodeHtmlEntities(recipe.title)}
+          title={displayTitle}
           image={recipe.image}
           ingredients={ingredientLines}
           steps={steps}

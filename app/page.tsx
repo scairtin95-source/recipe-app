@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '../src/lib/supabase'
+import { useTranslation } from '../src/lib/i18n/LocaleContext'
 
 const COLORS = {
   primary: '#9D3D2E',
@@ -80,6 +81,7 @@ function RecipeImage({ src, alt, size = 32 }: { src: string | null; alt: string;
 }
 
 export default function Home() {
+  const { t } = useTranslation()
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -149,7 +151,8 @@ export default function Home() {
   )
 
   const pantryCount = pantryItems.filter((p) => p.have_it).length
-  const matchPotential = pantryCount > 40 ? 'High' : pantryCount > 15 ? 'Medium' : 'Low'
+  const matchPotential = pantryCount > 40 ? t('homePage.matchHigh') : pantryCount > 15 ? t('homePage.matchMedium') : t('homePage.matchLow')
+  const matchPotentialRaw = pantryCount > 40 ? 'High' : pantryCount > 15 ? 'Medium' : 'Low'
 
   const runCravingSearch = async () => {
     if (!craving.trim() || recipes.length === 0) return
@@ -189,15 +192,15 @@ export default function Home() {
               fontFamily: 'var(--font-newsreader)', fontSize: '1.8rem', fontWeight: 700,
               color: '#2c2c2c', margin: '0 0 0.5rem'
             }}>
-              What are we craving today?
+              {t('homePage.cravingTitle')}
             </h1>
             <p style={{ color: '#6a6a6a', fontSize: '0.9rem', margin: '0 0 1.25rem' }}>
-              Tell me what you're in the mood for, or just let me suggest something based on what's in your pantry.
+              {t('homePage.cravingSubtitle')}
             </p>
             <div className="oliva-craving-row" style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem' }}>
               <input
                 type="text"
-                placeholder="e.g., A quick pasta dish with tomatoes…"
+                placeholder={t('homePage.cravingPlaceholder')}
                 value={craving}
                 onChange={(e) => setCraving(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && runCravingSearch()}
@@ -218,14 +221,18 @@ export default function Home() {
                   opacity: (searching || !craving.trim()) ? 0.6 : 1, whiteSpace: 'nowrap'
                 }}
               >
-                {searching ? 'Thinking…' : 'Suggest'}
+                {searching ? t('homePage.thinking') : t('homePage.suggest')}
               </button>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#8a8378', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                Try:
+                {t('homePage.tryLabel')}
               </span>
-              {['Quick & Easy', 'Vegetarian Comfort', 'Use Up Leftovers'].map((chip) => (
+              {[
+                t('homePage.chipQuickEasy'),
+                t('homePage.chipVegetarianComfort'),
+                t('homePage.chipUseUpLeftovers'),
+              ].map((chip) => (
                 <button key={chip} onClick={() => setCraving(chip)} style={{
                   padding: '0.4rem 0.9rem', borderRadius: 999, border: `1.5px solid ${COLORS.border}`,
                   background: '#fff', fontSize: '0.8rem', color: '#4a4a4a', cursor: 'pointer'
@@ -240,20 +247,20 @@ export default function Home() {
             background: COLORS.secondary, borderRadius: 18, padding: '1.75rem', color: COLORS.neutral
           }}>
             <p style={{ fontFamily: 'var(--font-newsreader)', fontSize: '1.1rem', fontWeight: 700, margin: '0 0 0.6rem' }}>
-              🥫 Pantry Status
+              🥫 {t('homePage.pantryStatus')}
             </p>
             <p style={{ fontSize: '0.85rem', opacity: 0.9, lineHeight: 1.5, margin: '0 0 1.25rem' }}>
-              You have {pantryCount} ingredients logged. {pantryCount === 0 ? 'Head to your Pantry to get started.' : "Here's what that unlocks."}
+              {t('homePage.pantryCountPrefix')} {pantryCount} {t('homePage.pantryCountSuffix')} {pantryCount === 0 ? t('homePage.pantryEmptyHint') : t('homePage.pantryHasDataHint')}
             </p>
             <div style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 12, padding: '0.9rem 1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ fontSize: '0.8rem' }}>Recipe Match Potential</span>
+                <span style={{ fontSize: '0.8rem' }}>{t('homePage.recipeMatchPotential')}</span>
                 <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>{matchPotential}</span>
               </div>
               <div style={{ height: 6, background: 'rgba(255,255,255,0.25)', borderRadius: 3, overflow: 'hidden' }}>
                 <div style={{
                   height: '100%',
-                  width: matchPotential === 'High' ? '85%' : matchPotential === 'Medium' ? '50%' : '20%',
+                  width: matchPotentialRaw === 'High' ? '85%' : matchPotentialRaw === 'Medium' ? '50%' : '20%',
                   background: COLORS.neutral
                 }} />
               </div>
@@ -266,19 +273,19 @@ export default function Home() {
           <div style={{ marginBottom: '3rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.25rem' }}>
               <h2 style={{ fontFamily: 'var(--font-newsreader)', fontSize: '1.5rem', fontWeight: 700, color: '#2c2c2c', margin: 0 }}>
-                Suggestions for "{craving}"
+                {t('homePage.suggestionsFor')} "{craving}"
               </h2>
               <button onClick={clearCraving} style={{
                 fontSize: '0.85rem', color: COLORS.primary, background: 'transparent',
                 border: 'none', cursor: 'pointer', fontWeight: 600
               }}>
-                Clear
+                {t('homePage.clear')}
               </button>
             </div>
 
             {cravingResults.length === 0 && (
               <p style={{ color: '#8a8378', fontSize: '0.9rem' }}>
-                Nothing matched that well — try a different craving, or browse <Link href="/recipes" style={{ color: COLORS.primary }}>all recipes</Link>.
+                {t('homePage.noCravingMatchPrefix')} <Link href="/recipes" style={{ color: COLORS.primary }}>{t('homePage.allRecipesLink')}</Link>.
               </p>
             )}
 
@@ -307,20 +314,20 @@ export default function Home() {
         <div style={{ marginBottom: '3rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.25rem' }}>
             <h2 style={{ fontFamily: 'var(--font-newsreader)', fontSize: '1.5rem', fontWeight: 700, color: '#2c2c2c', margin: 0 }}>
-              Ready to Cook
+              {t('homePage.readyToCook')}
             </h2>
             <Link href="/recipes" style={{ fontSize: '0.85rem', color: COLORS.primary, textDecoration: 'none', fontWeight: 600 }}>
-              View all →
+              {t('homePage.viewAll')}
             </Link>
           </div>
           <p style={{ color: '#8a8378', fontSize: '0.85rem', margin: '0 0 1rem' }}>
-            You have a good chunk of the ingredients for these recipes.
+            {t('homePage.readyToCookSubtitle')}
           </p>
 
-          {isLoading && <p style={{ color: '#8a8378' }}>Loading…</p>}
+          {isLoading && <p style={{ color: '#8a8378' }}>{t('homePage.loading')}</p>}
           {!isLoading && readyToCook.length === 0 && (
             <p style={{ color: '#8a8378', fontSize: '0.9rem' }}>
-              Toggle what you have in your <Link href="/pantry" style={{ color: COLORS.primary }}>Pantry</Link> to see matches here.
+              {t('homePage.readyToCookEmptyPrefix')} <Link href="/pantry" style={{ color: COLORS.primary }}>{t('nav.pantry')}</Link> {t('homePage.readyToCookEmptySuffix')}
             </p>
           )}
 
@@ -337,7 +344,7 @@ export default function Home() {
                         {decodeHtmlEntities(recipe.title)}
                       </p>
                       <p style={{ fontSize: '0.8rem', color: COLORS.secondary, margin: 0, fontWeight: 600 }}>
-                        {Math.round(matchPct * 100)}% match
+                        {Math.round(matchPct * 100)}% {t('homePage.matchSuffix')}
                       </p>
                     </div>
                   </div>
@@ -350,14 +357,14 @@ export default function Home() {
         {/* Almost There */}
         <div>
           <h2 style={{ fontFamily: 'var(--font-newsreader)', fontSize: '1.5rem', fontWeight: 700, color: '#2c2c2c', margin: '0 0 0.25rem' }}>
-            Almost There
+            {t('homePage.almostThere')}
           </h2>
           <p style={{ color: '#8a8378', fontSize: '0.85rem', margin: '0 0 1rem' }}>
-            A few more pantry items and these are within reach.
+            {t('homePage.almostThereSubtitle')}
           </p>
 
           {!isLoading && almostThere.length === 0 && (
-            <p style={{ color: '#8a8378', fontSize: '0.9rem' }}>Nothing this close right now — keep stocking your pantry!</p>
+            <p style={{ color: '#8a8378', fontSize: '0.9rem' }}>{t('homePage.almostThereEmpty')}</p>
           )}
 
           {!isLoading && almostThere.length > 0 && (
@@ -376,7 +383,7 @@ export default function Home() {
                         display: 'inline-block', fontSize: '0.75rem', color: COLORS.primary,
                         background: '#fbeae7', padding: '0.25rem 0.6rem', borderRadius: 6, fontWeight: 600
                       }}>
-                        {Math.round(matchPct * 100)}% match
+                        {Math.round(matchPct * 100)}% {t('homePage.matchSuffix')}
                       </span>
                     </div>
                   </div>

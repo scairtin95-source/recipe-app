@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { supabase } from '../../src/lib/supabase'
 import { useAuth } from '../../src/lib/AuthContext'
+import { useTranslation } from '../../src/lib/i18n/LocaleContext'
 
 const COLORS = {
   primary: '#9D3D2E',
@@ -54,16 +55,17 @@ function getDomain(url: string): string {
   }
 }
 
-function formatMinutesShort(mins: number | null): string | null {
+function formatMinutesShort(mins: number | null, minLabel: string, hrLabel: string): string | null {
   if (!mins || mins <= 0) return null
-  if (mins < 60) return `${mins} min`
+  if (mins < 60) return `${mins} ${minLabel}`
   const hours = Math.floor(mins / 60)
   const rest = mins % 60
-  return rest > 0 ? `${hours} hr ${rest} min` : `${hours} hr`
+  return rest > 0 ? `${hours} ${hrLabel} ${rest} ${minLabel}` : `${hours} ${hrLabel}`
 }
 
 export default function Home() {
   const { user } = useAuth()
+  const { t } = useTranslation()
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
 
@@ -90,6 +92,7 @@ export default function Home() {
   const [parsing, setParsing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [isError, setIsError] = useState(false)
   const [mode, setMode] = useState<'input' | 'preview' | 'edit'>('input')
 
   const resetAll = () => {
@@ -97,12 +100,12 @@ export default function Home() {
     setStructuredIngredients(null); setIngredientsText(''); setIngredientsEdited(false)
     setSteps(''); setTags(''); setImage('')
     setPrepTimeMinutes(null); setCookTimeMinutes(null); setTotalTimeMinutes(null); setServings(null)
-    setMessage('')
+    setMessage(''); setIsError(false)
     setMode('input')
   }
 
   const parseRecipe = async () => {
-    if (!url) { setMessage('Please enter a URL'); return }
+    if (!url) { setMessage(t('addRecipePage.enterUrlError')); setIsError(true); return }
     setParsing(true)
     const res = await fetch('/api/parse-recipe', {
       method: 'POST',
@@ -123,6 +126,7 @@ export default function Home() {
     setTotalTimeMinutes(typeof data.totalTimeMinutes === 'number' ? data.totalTimeMinutes : null)
     setServings(typeof data.servings === 'number' ? data.servings : null)
     setMessage('')
+    setIsError(false)
     setParsing(false)
     if (data.title) setMode('preview')
 
@@ -144,8 +148,8 @@ export default function Home() {
   }
 
   const saveRecipe = async () => {
-    if (!title) { setMessage('Please enter a title'); return }
-    if (!user) { setMessage('You need to be logged in to save a recipe.'); return }
+    if (!title) { setMessage(t('addRecipePage.enterTitleError')); setIsError(true); return }
+    if (!user) { setMessage(t('addRecipePage.loginRequiredError')); setIsError(true); return }
     setSaving(true)
 
     // Use the parser's structured data as-is if the ingredients text
@@ -172,12 +176,14 @@ export default function Home() {
         user_id: user.id,
       }])
     if (error) {
-      setMessage('Error saving: ' + error.message)
+      setMessage(`${t('addRecipePage.savingErrorPrefix')} ${error.message}`)
+      setIsError(true)
       setSaving(false)
     } else {
       addIngredientsToPantry(ingredientsText)
       resetAll()
-      setMessage('Recipe saved!')
+      setMessage(t('addRecipePage.recipeSaved'))
+      setIsError(false)
       setSaving(false)
     }
   }
@@ -238,10 +244,12 @@ export default function Home() {
       : parseList(ingredientsText)
   const previewTags = tagList(tags)
 
+  const minLabel = t('recipeDetail.minutesShort')
+  const hrLabel = t('recipeDetail.hoursShort')
   const metaSummary = [
-    formatMinutesShort(prepTimeMinutes) && `Prep ${formatMinutesShort(prepTimeMinutes)}`,
-    formatMinutesShort(cookTimeMinutes) && `Cook ${formatMinutesShort(cookTimeMinutes)}`,
-    servings && `Serves ${servings}`,
+    formatMinutesShort(prepTimeMinutes, minLabel, hrLabel) && `${t('addRecipePage.prepShort')} ${formatMinutesShort(prepTimeMinutes, minLabel, hrLabel)}`,
+    formatMinutesShort(cookTimeMinutes, minLabel, hrLabel) && `${t('addRecipePage.cookShort')} ${formatMinutesShort(cookTimeMinutes, minLabel, hrLabel)}`,
+    servings && `${t('addRecipePage.servesShort')} ${servings}`,
   ].filter(Boolean).join(' · ')
 
   return (
@@ -255,17 +263,17 @@ export default function Home() {
             fontSize: '2.2rem', fontWeight: 600, color: '#2c2c2c', margin: '0 0 0.5rem',
             fontFamily: 'var(--font-newsreader)'
           }}>
-            Add a recipe
+            {t('addRecipePage.heading')}
           </h2>
           <p style={{ color: '#8a8378', fontSize: '0.95rem', margin: 0 }}>
-            Paste a link and we'll read the recipe off the page
+            {t('addRecipePage.subtitle')}
           </p>
         </div>
 
         {/* URL + Parse/Clear */}
         <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem' }}>
           <input
-            type="text" placeholder="Paste a recipe URL…" value={url}
+            type="text" placeholder={t('addRecipePage.urlPlaceholder')} value={url}
             onChange={(e) => setUrl(e.target.value)}
             disabled={mode !== 'input'}
             style={{ ...inputStyle, flex: 1, opacity: mode !== 'input' ? 0.7 : 1 }}
@@ -277,7 +285,7 @@ export default function Home() {
               fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-manrope)',
               whiteSpace: 'nowrap', opacity: parsing ? 0.7 : 1
             }}>
-              {parsing ? 'Parsing…' : 'Parse'}
+              {parsing ? t('addRecipePage.parsing') : t('addRecipePage.parse')}
             </button>
           ) : (
             <button onClick={resetAll} style={{
@@ -286,7 +294,7 @@ export default function Home() {
               fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-manrope)',
               whiteSpace: 'nowrap'
             }}>
-              Clear
+              {t('addRecipePage.clear')}
             </button>
           )}
         </div>
@@ -294,12 +302,12 @@ export default function Home() {
         {mode === 'input' && (
           <>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem', fontSize: '0.85rem', color: '#8a8378' }}>
-              <span>Try:</span>
+              <span>{t('addRecipePage.tryLabel')}</span>
               <span style={{ padding: '0.3rem 0.8rem', borderRadius: 999, background: '#fff', border: '1px solid #e5ddd3' }}>
-                a food blog link
+                {t('addRecipePage.tryFoodBlog')}
               </span>
               <span style={{ padding: '0.3rem 0.8rem', borderRadius: 999, background: '#fff', border: '1px solid #e5ddd3' }}>
-                an Instagram caption
+                {t('addRecipePage.tryInstagram')}
               </span>
             </div>
             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
@@ -311,7 +319,7 @@ export default function Home() {
                   textDecoration: 'underline', fontFamily: 'var(--font-manrope)'
                 }}
               >
-                Or enter a recipe manually →
+                {t('addRecipePage.manualEntryLink')}
               </button>
             </div>
           </>
@@ -354,13 +362,13 @@ export default function Home() {
               {ingredientPreview.length > 0 && (
                 <>
                   <p style={{ fontSize: '0.75rem', fontWeight: 600, color: COLORS.tertiary, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.4rem' }}>
-                    Ingredients Preview
+                    {t('addRecipePage.ingredientsPreviewLabel')}
                   </p>
                   <ul style={{ margin: '0 0 0.9rem', padding: '0 0 0 1.1rem', fontSize: '0.85rem', color: '#3c3c3c', lineHeight: 1.7 }}>
                     {ingredientPreview.slice(0, 5).map((item, i) => <li key={i}>{item}</li>)}
                     {ingredientPreview.length > 5 && (
                       <li style={{ color: '#8a8378', listStyle: 'none', marginLeft: '-1.1rem' }}>
-                        …and {ingredientPreview.length - 5} more items
+                        {t('addRecipePage.andPrefix')} {ingredientPreview.length - 5} {t('addRecipePage.moreItemsSuffix')}
                       </li>
                     )}
                   </ul>
@@ -387,14 +395,14 @@ export default function Home() {
                   fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-manrope)',
                   opacity: saving ? 0.7 : 1
                 }}>
-                  {saving ? 'Saving…' : '♡ Looks good, save it!'}
+                  {saving ? t('addRecipePage.saving') : `♡ ${t('addRecipePage.saveGood')}`}
                 </button>
                 <button onClick={() => setMode('edit')} style={{
                   padding: '0.65rem 1.2rem', borderRadius: 999, border: '1.5px solid #d8cfc0',
                   background: '#fff', color: '#3c3c3c', fontSize: '0.9rem',
                   fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-manrope)'
                 }}>
-                  ✎ Manual Edit
+                  ✎ {t('addRecipePage.manualEdit')}
                 </button>
               </div>
             </div>
@@ -412,29 +420,29 @@ export default function Home() {
             )}
 
             <input
-              type="text" placeholder="Recipe title" value={title}
+              type="text" placeholder={t('addRecipePage.titlePlaceholder')} value={title}
               onChange={(e) => setTitle(e.target.value)}
               style={{ ...inputStyle, fontFamily: 'var(--font-newsreader)', fontSize: '1.1rem' }}
             />
 
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <input
-                type="number" placeholder="Prep (min)" value={prepTimeMinutes ?? ''}
+                type="number" placeholder={t('addRecipePage.prepPlaceholder')} value={prepTimeMinutes ?? ''}
                 onChange={(e) => setPrepTimeMinutes(e.target.value ? Number(e.target.value) : null)}
                 style={{ ...inputStyle, flex: 1 }}
               />
               <input
-                type="number" placeholder="Cook (min)" value={cookTimeMinutes ?? ''}
+                type="number" placeholder={t('addRecipePage.cookPlaceholder')} value={cookTimeMinutes ?? ''}
                 onChange={(e) => setCookTimeMinutes(e.target.value ? Number(e.target.value) : null)}
                 style={{ ...inputStyle, flex: 1 }}
               />
               <input
-                type="number" placeholder="Total (min)" value={totalTimeMinutes ?? ''}
+                type="number" placeholder={t('addRecipePage.totalPlaceholder')} value={totalTimeMinutes ?? ''}
                 onChange={(e) => setTotalTimeMinutes(e.target.value ? Number(e.target.value) : null)}
                 style={{ ...inputStyle, flex: 1 }}
               />
               <input
-                type="number" placeholder="Servings" value={servings ?? ''}
+                type="number" placeholder={t('addRecipePage.servingsPlaceholder')} value={servings ?? ''}
                 onChange={(e) => setServings(e.target.value ? Number(e.target.value) : null)}
                 style={{ ...inputStyle, flex: 1 }}
               />
@@ -442,33 +450,33 @@ export default function Home() {
 
             <div>
               <label style={{ fontSize: '0.8rem', fontWeight: 600, color: COLORS.tertiary, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: '0.4rem' }}>
-                Ingredients
+                {t('addRecipePage.ingredientsLabel')}
               </label>
               <textarea
-                placeholder="One ingredient per line…" value={ingredientsText}
+                placeholder={t('addRecipePage.ingredientsTextPlaceholder')} value={ingredientsText}
                 onChange={(e) => { setIngredientsText(e.target.value); setIngredientsEdited(true) }}
                 rows={6} style={{ ...inputStyle, resize: 'vertical' as const }}
               />
               {structuredIngredients && !ingredientsEdited && (
                 <p style={{ fontSize: '0.75rem', color: '#8a8378', margin: '0.4rem 0 0' }}>
-                  Quantities were parsed automatically — editing this text will save it as plain lines instead.
+                  {t('addRecipePage.autoParsedNote')}
                 </p>
               )}
             </div>
 
             <div>
               <label style={{ fontSize: '0.8rem', fontWeight: 600, color: COLORS.tertiary, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: '0.4rem' }}>
-                Method
+                {t('addRecipePage.methodLabel')}
               </label>
               <textarea
-                placeholder="One step per line…" value={steps}
+                placeholder={t('addRecipePage.methodPlaceholder')} value={steps}
                 onChange={(e) => setSteps(e.target.value)}
                 rows={8} style={{ ...inputStyle, resize: 'vertical' as const }}
               />
             </div>
 
             <input
-              type="text" placeholder="Tags — e.g. breakfast, healthy, quick" value={tags}
+              type="text" placeholder={t('addRecipePage.tagsPlaceholder')} value={tags}
               onChange={(e) => setTags(e.target.value)}
               style={inputStyle}
             />
@@ -480,14 +488,14 @@ export default function Home() {
                 fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-manrope)',
                 opacity: saving ? 0.7 : 1
               }}>
-                {saving ? 'Saving…' : 'Save Recipe'}
+                {saving ? t('addRecipePage.saving') : t('addRecipePage.saveRecipe')}
               </button>
               <button onClick={() => setMode(title || url ? 'preview' : 'input')} style={{
                 padding: '0.85rem 1.3rem', borderRadius: 999, border: '1.5px solid #d8cfc0',
                 background: '#fff', color: '#3c3c3c', fontSize: '0.95rem',
                 fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-manrope)'
               }}>
-                Back
+                {t('addRecipePage.back')}
               </button>
             </div>
           </div>
@@ -497,8 +505,8 @@ export default function Home() {
         {message && (
           <p style={{
             marginTop: '1rem', padding: '0.75rem 1rem', borderRadius: 10,
-            background: message.includes('Error') ? '#fbeae7' : '#eef0e8',
-            color: message.includes('Error') ? COLORS.primary : COLORS.secondary,
+            background: isError ? '#fbeae7' : '#eef0e8',
+            color: isError ? COLORS.primary : COLORS.secondary,
             fontFamily: 'var(--font-manrope)', fontSize: '0.9rem'
           }}>
             {message}

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../src/lib/supabase'
 import { useAuth } from '../../src/lib/AuthContext'
+import { useTranslation } from '../../src/lib/i18n/LocaleContext'
 
 const COLORS = {
   primary: '#9D3D2E',
@@ -37,6 +38,7 @@ export default function TablePage() {
   const [recipes, setRecipes] = useState<SharedRecipe[]>([])
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
+  const { t } = useTranslation()
 
    useEffect(() => {
     async function load() {
@@ -56,23 +58,23 @@ export default function TablePage() {
     load()
   }, [user])
 
-  const nameFor = (userId: string) => members.find((m) => m.user_id === userId)?.display_name || 'Someone'
+  const nameFor = (userId: string) => members.find((m) => m.user_id === userId)?.display_name || t('tablePage.someone')
 
   return (
     <div style={{ minHeight: '100vh', background: COLORS.neutral, fontFamily: 'var(--font-manrope)' }}>
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: '2.5rem 1.5rem' }}>
 
         <h1 style={{ fontFamily: 'var(--font-newsreader)', fontSize: '2.2rem', fontWeight: 700, color: '#2c2c2c', margin: '0 0 0.4rem' }}>
-          The Table
+          {t('nav.table')}
         </h1>
         <p style={{ color: '#6a6a6a', fontSize: '0.9rem', margin: '0 0 1.5rem' }}>
-          Recipes shared by everyone at the table: {members.map((m) => m.display_name).join(', ') || '…'}
+          {t('tablePage.subtitlePrefix')} {members.map((m) => m.display_name).join(', ') || '…'}
         </p>
 
-        {loading && <p style={{ color: '#8a8378' }}>Loading…</p>}
+        {loading && <p style={{ color: '#8a8378' }}>{t('tablePage.loading')}</p>}
 
         {!loading && recipes.length === 0 && (
-          <p style={{ color: '#8a8378' }}>No shared recipes yet.</p>
+          <p style={{ color: '#8a8378' }}>{t('tablePage.noSharedRecipes')}</p>
         )}
 
         {!loading && recipes.length > 0 && (

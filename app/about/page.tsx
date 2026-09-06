@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { supabase } from '../../src/lib/supabase'
+import { useTranslation } from '../../src/lib/i18n/LocaleContext'
 
 const COLORS = {
   primary: '#9D3D2E',
@@ -11,13 +12,25 @@ const COLORS = {
   border: '#EAE2D6',
 }
 
+// Stable English keys stored in the DB regardless of UI language, so the
+// `messages.subject` column stays consistent no matter what locale the
+// person submitted the form in. Display labels are translated separately.
+const SUBJECT_OPTIONS = [
+  { value: 'Recipe Suggestion', labelKey: 'aboutPage.subjectRecipeSuggestion' },
+  { value: 'Spotted an Error', labelKey: 'aboutPage.subjectSpottedError' },
+  { value: 'General Feedback', labelKey: 'aboutPage.subjectGeneralFeedback' },
+  { value: 'Just Saying Hello', labelKey: 'aboutPage.subjectSayingHello' },
+]
+
 export default function AboutPage() {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [subject, setSubject] = useState('Recipe Suggestion')
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState('')
+  const [isError, setIsError] = useState(false)
 
   const inputStyle = {
     width: '100%', padding: '0.7rem 0.9rem', fontSize: '0.9rem',
@@ -34,7 +47,8 @@ export default function AboutPage() {
 
   const sendMessage = async () => {
     if (!name || !email || !message) {
-      setStatus('Please fill in your name, email, and message.')
+      setStatus(t('aboutPage.fillFieldsError'))
+      setIsError(true)
       return
     }
     setSending(true)
@@ -42,9 +56,11 @@ export default function AboutPage() {
       .from('messages')
       .insert([{ name, email, subject, message }])
     if (error) {
-      setStatus('Something went wrong — please try again.')
+      setStatus(t('aboutPage.genericError'))
+      setIsError(true)
     } else {
-      setStatus('Message sent — thank you!')
+      setStatus(t('aboutPage.sentSuccess'))
+      setIsError(false)
       setName(''); setEmail(''); setSubject('Recipe Suggestion'); setMessage('')
     }
     setSending(false)
@@ -61,22 +77,22 @@ export default function AboutPage() {
               fontSize: '0.75rem', fontWeight: 700, color: COLORS.tertiary,
               textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 0.6rem'
             }}>
-              Our Story
+              {t('aboutPage.ourStoryLabel')}
             </p>
             <h1 style={{
               fontFamily: 'var(--font-newsreader)', fontSize: '2.4rem', fontWeight: 700,
               color: '#2c2c2c', lineHeight: 1.2, margin: '0 0 1.25rem'
             }}>
-              Gathering the Scattered Pieces
+              {t('aboutPage.storyTitle')}
             </h1>
             <p style={{ color: '#4a4a4a', fontSize: '0.95rem', lineHeight: 1.7, marginBottom: '1.1rem' }}>
-              For years, our favorite recipes were scattered across faded index cards, endless bookmarks, and hastily scribbled notes tucked into cookbooks. The Olive Table was born from a simple desire: to create a single, warm space to gather them all.
+              {t('aboutPage.storyP1')}
             </p>
             <p style={{ color: '#4a4a4a', fontSize: '0.95rem', lineHeight: 1.7, marginBottom: '1.1rem' }}>
-              We built this platform to feel less like a utility and more like a tactile, heirloom cookbook. A place where the focus remains on the food, the ingredients, and the stories behind the meals we share.
+              {t('aboutPage.storyP2')}
             </p>
             <p style={{ color: '#4a4a4a', fontSize: '0.95rem', lineHeight: 1.7 }}>
-              Whether you're looking for a quick weeknight staple or planning a Sunday feast, we hope you find a seat at our table.
+              {t('aboutPage.storyP3')}
             </p>
           </div>
 
@@ -108,7 +124,7 @@ export default function AboutPage() {
                 fontFamily: 'var(--font-newsreader)', fontStyle: 'italic', fontSize: '1.05rem',
                 color: '#3c3c3c', textAlign: 'center', lineHeight: 1.5, margin: 0
               }}>
-                "Food is our common ground, a universal experience."
+                "{t('aboutPage.quote')}"
               </p>
             </div>
           </div>
@@ -120,10 +136,10 @@ export default function AboutPage() {
             fontFamily: 'var(--font-newsreader)', fontSize: '2rem', fontWeight: 700,
             color: '#2c2c2c', margin: '0 0 0.5rem'
           }}>
-            Get in Touch
+            {t('aboutPage.getInTouch')}
           </h2>
           <p style={{ color: '#6a6a6a', fontSize: '0.95rem' }}>
-            Have a recipe suggestion, spotted an error, or just want to say hello? We'd love to hear from you.
+            {t('aboutPage.getInTouchSubtitle')}
           </p>
         </div>
 
@@ -133,37 +149,36 @@ export default function AboutPage() {
         }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
             <div>
-              <label style={labelStyle}>Name</label>
-              <input type="text" placeholder="Your name" value={name}
+              <label style={labelStyle}>{t('aboutPage.nameLabel')}</label>
+              <input type="text" placeholder={t('aboutPage.namePlaceholder')} value={name}
                 onChange={(e) => setName(e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <label style={labelStyle}>Email</label>
+              <label style={labelStyle}>{t('aboutPage.emailLabel')}</label>
               <input type="email" placeholder="you@example.com" value={email}
                 onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
             </div>
           </div>
 
           <div style={{ marginBottom: '1rem' }}>
-            <label style={labelStyle}>Subject</label>
+            <label style={labelStyle}>{t('aboutPage.subjectLabel')}</label>
             <select value={subject} onChange={(e) => setSubject(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-              <option>Recipe Suggestion</option>
-              <option>Spotted an Error</option>
-              <option>General Feedback</option>
-              <option>Just Saying Hello</option>
+              {SUBJECT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
+              ))}
             </select>
           </div>
 
           <div style={{ marginBottom: '1.25rem' }}>
-            <label style={labelStyle}>Message</label>
-            <textarea placeholder="How can we help?" value={message}
+            <label style={labelStyle}>{t('aboutPage.messageLabel')}</label>
+            <textarea placeholder={t('aboutPage.messagePlaceholder')} value={message}
               onChange={(e) => setMessage(e.target.value)} rows={5}
               style={{ ...inputStyle, resize: 'vertical' as const }} />
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
             {status && (
-              <span style={{ fontSize: '0.85rem', color: status.includes('wrong') ? COLORS.primary : COLORS.secondary }}>
+              <span style={{ fontSize: '0.85rem', color: isError ? COLORS.primary : COLORS.secondary }}>
                 {status}
               </span>
             )}
@@ -173,7 +188,7 @@ export default function AboutPage() {
               fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-manrope)',
               opacity: sending ? 0.7 : 1
             }}>
-              {sending ? 'Sending…' : 'Send Message →'}
+              {sending ? t('aboutPage.sending') : t('aboutPage.sendMessage')}
             </button>
           </div>
         </div>

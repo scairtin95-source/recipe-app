@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../src/lib/supabase'
 import { useAuth } from '../../src/lib/AuthContext'
+import { useTranslation } from '../../src/lib/i18n/LocaleContext'
 
 interface Recipe {
   id: number
@@ -72,6 +73,7 @@ function RecipeImage({ src, alt, size = 40 }: { src: string | null; alt: string;
 
 export default function RecipesPage() {
   const { user } = useAuth()
+  const { t } = useTranslation()
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -160,6 +162,13 @@ function decodeHtmlEntities(text: string | null): string {
     ).length
   }
 
+  // Fixed-vocabulary tag labels (Cuisine/Course/Style) are translated via
+  // the dictionary. Freeform per-recipe tags (from Claude auto-tagging)
+  // are NOT translated here — they're open-ended text, not a fixed list.
+  function tagLabel(tag: string): string {
+    return t(`tags.${tag}`)
+  }
+
   const cuisineCards = useMemo(
     () => CUISINE_TAGS.map((tag) => ({ tag, image: imageForTag(tag), count: countForTag(tag) }))
       .filter((c) => c.count > 0),
@@ -216,7 +225,7 @@ function decodeHtmlEntities(text: string | null): string {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search recipes or tags…"
+          placeholder={t('recipesPage.searchPlaceholder')}
           style={{
             width: '100%', padding: '0.75rem 1.1rem', fontSize: '1rem',
             border: '1.5px solid #e5ddd3', borderRadius: 12,
@@ -233,7 +242,7 @@ function decodeHtmlEntities(text: string | null): string {
               fontSize: '0.7rem', fontWeight: 600, color: COLORS.tertiary,
               textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.6rem'
             }}>
-              Cuisine
+              {t('recipesPage.cuisine')}
             </p>
             <div style={{ display: 'flex', gap: '0.6rem', overflowX: 'auto', paddingBottom: '4px' }}>
               {cuisineCards.map((c, i) => {
@@ -263,8 +272,8 @@ function decodeHtmlEntities(text: string | null): string {
                       background: 'linear-gradient(transparent 40%, rgba(0,0,0,0.65))'
                     }} />
                     <div style={{ position: 'absolute', bottom: 10, left: 12, right: 12, textAlign: 'left' }}>
-                      <p style={{ color: '#fdf8f5', fontSize: '0.95rem', fontWeight: 600, margin: 0, textTransform: 'capitalize' }}>
-                        {c.tag}
+                      <p style={{ color: '#fdf8f5', fontSize: '0.95rem', fontWeight: 600, margin: 0 }}>
+                        {tagLabel(c.tag)}
                       </p>
                     </div>
                   </button>
@@ -281,7 +290,7 @@ function decodeHtmlEntities(text: string | null): string {
               fontSize: '0.7rem', fontWeight: 600, color: COLORS.tertiary,
               textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.6rem'
             }}>
-              Course
+              {t('recipesPage.course')}
             </p>
             <div style={{ display: 'flex', gap: '0.6rem', overflowX: 'auto', paddingBottom: '4px' }}>
               {courseCards.map((c, i) => {
@@ -312,9 +321,9 @@ function decodeHtmlEntities(text: string | null): string {
                     }} />
                     <p style={{
                       position: 'absolute', bottom: 8, left: 10, color: '#fdf8f5',
-                      fontSize: '0.8rem', fontWeight: 600, margin: 0, textTransform: 'capitalize'
+                      fontSize: '0.8rem', fontWeight: 600, margin: 0
                     }}>
-                      {c.tag}
+                      {tagLabel(c.tag)}
                     </p>
                   </button>
                 )
@@ -330,7 +339,7 @@ function decodeHtmlEntities(text: string | null): string {
               fontSize: '0.7rem', fontWeight: 600, color: COLORS.tertiary,
               textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.6rem'
             }}>
-              Style
+              {t('recipesPage.style')}
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
               {styleCards.map((c, i) => {
@@ -343,13 +352,12 @@ function decodeHtmlEntities(text: string | null): string {
                       padding: '0.5rem 1.1rem', borderRadius: 999, border: 'none',
                       background: CARD_COLORS[i % CARD_COLORS.length], color: '#fdf8f5',
                       fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
-                      textTransform: 'capitalize',
                       opacity: isActive ? 1 : 0.75,
                       outline: isActive ? `2.5px solid ${COLORS.primary}` : 'none',
                       outlineOffset: '2px'
                     }}
                   >
-                    {c.tag} · {c.count}
+                    {tagLabel(c.tag)} · {c.count}
                   </button>
                 )
               })}
@@ -363,21 +371,21 @@ function decodeHtmlEntities(text: string | null): string {
                     textDecoration: 'underline'
                   }}
                 >
-                  Clear filters
+                  {t('recipesPage.clearFilters')}
                 </button>
               )}
             </div>
           </div>
         )}
 
-        {isLoading && <p style={{ color: '#8a8378', textAlign: 'center', padding: '3rem', fontFamily: 'var(--font-manrope)' }}>Loading your recipes…</p>}
-        {error && <p style={{ color: COLORS.primary }}>Failed to load recipes: {error}</p>}
+        {isLoading && <p style={{ color: '#8a8378', textAlign: 'center', padding: '3rem', fontFamily: 'var(--font-manrope)' }}>{t('recipesPage.loading')}</p>}
+        {error && <p style={{ color: COLORS.primary }}>{t('recipesPage.failedToLoad')}: {error}</p>}
         {!isLoading && !error && recipes.length === 0 && (
-          <p style={{ color: '#8a8378', textAlign: 'center', padding: '3rem', fontFamily: 'var(--font-manrope)' }}>No recipes saved yet. Add your first one!</p>
+          <p style={{ color: '#8a8378', textAlign: 'center', padding: '3rem', fontFamily: 'var(--font-manrope)' }}>{t('recipesPage.noRecipesYet')}</p>
         )}
         {!isLoading && !error && recipes.length > 0 && filteredRecipes.length === 0 && (
           <p style={{ color: '#8a8378', textAlign: 'center', fontFamily: 'var(--font-manrope)' }}>
-            No recipes match{searchQuery ? ` "${searchQuery}"` : ''}{activeTags.length > 0 ? ` with the selected tags` : ''}.
+            {t('recipesPage.noMatches')}{searchQuery ? ` "${searchQuery}"` : ''}{activeTags.length > 0 ? ` ${t('recipesPage.withSelectedTags')}` : ''}.
           </p>
         )}
 
@@ -417,7 +425,7 @@ function decodeHtmlEntities(text: string | null): string {
                         WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
                         fontFamily: 'var(--font-newsreader)', color: '#2c2c2c'
                       }}>
-                        {decodeHtmlEntities(recipe.title) || 'Untitled recipe'}
+                        {decodeHtmlEntities(recipe.title) || t('recipesPage.untitledRecipe')}
                       </h2>
                       
                       {recipe.is_private && (
@@ -425,7 +433,7 @@ function decodeHtmlEntities(text: string | null): string {
                           display: 'inline-block', fontSize: '0.65rem', fontWeight: 700, color: COLORS.secondary,
                           background: '#eef0e8', padding: '0.15rem 0.55rem', borderRadius: 999, marginBottom: '0.4rem'
                         }}>
-                          🔒 Private
+                          🔒 {t('common.private')}
                         </span>
                       )}
       
@@ -453,7 +461,7 @@ function decodeHtmlEntities(text: string | null): string {
                     e.stopPropagation()
                     setOpenPickerId(openPickerId === recipe.id ? null : recipe.id)
                   }}
-                  title="Add to collection"
+                  title={t('recipesPage.addToCollection')}
                   style={{
                     position: 'absolute', top: 10, right: 10,
                     width: 32, height: 32, borderRadius: '50%',
@@ -478,7 +486,7 @@ function decodeHtmlEntities(text: string | null): string {
                   >
                     {collections.length === 0 && (
                       <p style={{ fontSize: '0.8rem', color: '#8a8378', margin: 0, padding: '0.3rem' }}>
-                        No collections yet
+                        {t('recipesPage.noCollectionsYet')}
                       </p>
                     )}
                     {collections.map((c) => (
@@ -510,7 +518,7 @@ function decodeHtmlEntities(text: string | null): string {
                     background: COLORS.secondary, color: '#fff', fontSize: '0.8rem',
                     padding: '0.4rem 0.8rem', borderRadius: 8
                   }}>
-                    Added!
+                    {t('recipesPage.added')}
                   </div>
                 )}
               </div>

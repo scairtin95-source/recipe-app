@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '../src/lib/AuthContext'
+import { useTranslation, Locale } from '../src/lib/i18n/LocaleContext'
 
 const COLORS = {
   primary: '#9D3D2E',
@@ -20,6 +21,7 @@ export default function Nav() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const { user, signOut } = useAuth()
+  const { locale, setLocale, t } = useTranslation()
 
   // The login page has its own centered layout — no header needed there.
   if (pathname === '/login') return null
@@ -47,11 +49,18 @@ export default function Nav() {
   })
 
   const navLinks = [
-    { href: '/', label: 'Home' },
-    { href: '/recipes', label: 'Recipes' },
-    { href: '/table', label: 'The Table' },
-    { href: '/pantry', label: 'Pantry' },
-    { href: '/about', label: 'About' },
+    { href: '/', label: t('nav.home') },
+    { href: '/recipes', label: t('nav.recipes') },
+    { href: '/table', label: t('nav.table') },
+    { href: '/pantry', label: t('nav.pantry') },
+    { href: '/about', label: t('nav.about') },
+  ]
+
+  const LANGUAGES: { code: Locale; label: string }[] = [
+  { code: 'en', label: 'English' },
+  { code: 'es', label: 'Español' },
+  { code: 'ro', label: 'Română' },
+  { code: 'ru', label: 'Русский' },
   ]
 
   const handleSignOut = async () => {
@@ -125,7 +134,7 @@ export default function Nav() {
           fontFamily: 'var(--font-manrope)',
           whiteSpace: 'nowrap',
         }}>
-          Add Recipe
+           {t('nav.addRecipe')}
         </Link>
 
         {/* Profile — desktop only, opens a small dropdown with sign out */}
@@ -148,6 +157,26 @@ export default function Nav() {
               background: '#fff', border: `1px solid ${COLORS.border}`, borderRadius: 12,
               boxShadow: '0 8px 20px rgba(0,0,0,0.08)', padding: '0.75rem', minWidth: 200, zIndex: 50,
             }}>
+              <div style={{
+                display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem',
+                paddingBottom: '0.6rem', borderBottom: `1px solid ${COLORS.border}`,
+              }}>
+                {LANGUAGES.map((lang) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => setLocale(lang.code)}
+                    style={{
+                      padding: '0.3rem 0.6rem', borderRadius: 999, cursor: 'pointer',
+                      fontFamily: 'var(--font-manrope)', fontSize: '0.75rem', fontWeight: 600,
+                      border: `1px solid ${locale === lang.code ? COLORS.secondary : COLORS.border}`,
+                      background: locale === lang.code ? COLORS.secondary : '#fff',
+                      color: locale === lang.code ? COLORS.neutral : COLORS.text,
+                    }}
+                  >
+                    {lang.label}
+                  </button>
+                ))}
+              </div>
               {user?.email && (
                 <p style={{
                   fontSize: '0.75rem', color: '#8a8378', margin: '0 0 0.6rem',
@@ -155,6 +184,7 @@ export default function Nav() {
                 }}>
                   Signed in as<br /><span style={{ color: COLORS.text, fontWeight: 600 }}>{user.email}</span>
                 </p>
+
               )}
               <button
                 onClick={handleSignOut}
@@ -164,7 +194,7 @@ export default function Nav() {
                   cursor: 'pointer', fontFamily: 'var(--font-manrope)', textAlign: 'left'
                 }}
               >
-                Log out
+                {t('nav.logOut')}
               </button>
             </div>
           )}
@@ -225,6 +255,25 @@ export default function Nav() {
             </Link>
           ))}
           <div style={{ padding: '0.85rem 1.25rem' }}>
+            <div style={{
+              display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem',
+            }}>
+              {LANGUAGES.map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => setLocale(lang.code)}
+                  style={{
+                    padding: '0.35rem 0.7rem', borderRadius: 999, cursor: 'pointer',
+                    fontFamily: 'var(--font-manrope)', fontSize: '0.8rem', fontWeight: 600,
+                    border: `1px solid ${locale === lang.code ? COLORS.secondary : COLORS.border}`,
+                    background: locale === lang.code ? COLORS.secondary : '#fff',
+                    color: locale === lang.code ? COLORS.neutral : COLORS.text,
+                  }}
+                >
+                  {lang.label}
+                </button>
+              ))}
+            </div>
             {user?.email && (
               <p style={{ fontSize: '0.8rem', color: '#8a8378', margin: '0 0 0.6rem', fontFamily: 'var(--font-manrope)' }}>
                 Signed in as <span style={{ color: COLORS.text, fontWeight: 600 }}>{user.email}</span>

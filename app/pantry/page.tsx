@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../src/lib/supabase'
 import { useAuth } from '../../src/lib/AuthContext'
+import { useTranslation } from '../../src/lib/i18n/LocaleContext'
 
 const COLORS = {
   primary: '#9D3D2E',
@@ -31,6 +32,7 @@ const CATEGORY_ICONS: Record<string, string> = {
 
 export default function PantryPage() {
   const { user } = useAuth()
+  const { t } = useTranslation()
   const [items, setItems] = useState<PantryItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -114,15 +116,15 @@ export default function PantryPage() {
               fontFamily: 'var(--font-newsreader)', fontSize: '2.2rem', fontWeight: 700,
               color: '#2c2c2c', margin: '0 0 0.4rem'
             }}>
-              Your Pantry
+              {t('pantryPage.title')}
             </h1>
             <p style={{ color: '#6a6a6a', fontSize: '0.9rem', margin: 0 }}>
-              Keep track of your ingredients for your next culinary adventure.
+              {t('pantryPage.subtitle')}
             </p>
           </div>
           <input
             type="text"
-            placeholder="Search ingredients…"
+            placeholder={t('pantryPage.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
@@ -133,11 +135,11 @@ export default function PantryPage() {
           />
         </div>
 
-        {isLoading && <p style={{ color: '#8a8378', padding: '2rem 0' }}>Loading pantry…</p>}
+        {isLoading && <p style={{ color: '#8a8378', padding: '2rem 0' }}>{t('pantryPage.loading')}</p>}
 
         {!isLoading && categories.length === 0 && (
           <p style={{ color: '#8a8378', padding: '2rem 0' }}>
-            Nothing here yet — add your first item below.
+            {t('pantryPage.emptyState')}
           </p>
         )}
 
@@ -176,7 +178,7 @@ export default function PantryPage() {
                       {category}
                     </h2>
                     <p style={{ color: '#8a8378', fontSize: '0.8rem', margin: '0 0 1rem' }}>
-                      {catItems.length} item{catItems.length === 1 ? '' : 's'}
+                      {catItems.length} {catItems.length === 1 ? t('pantryPage.itemSingular') : t('pantryPage.itemPlural')}
                     </p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
                       {visibleItems.map((item) => (
@@ -192,7 +194,7 @@ export default function PantryPage() {
                           </span>
                           <button
                             onClick={() => toggleItem(item)}
-                            aria-label={`Toggle ${item.name}`}
+                            aria-label={`${t('pantryPage.toggleAriaLabel')} ${item.name}`}
                             style={{
                               width: 38, height: 22, borderRadius: 999, border: 'none',
                               background: item.have_it ? COLORS.secondary : '#e0dbd2',
@@ -217,7 +219,7 @@ export default function PantryPage() {
                             cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-manrope)'
                           }}
                         >
-                          +{hiddenCount} more
+                          +{hiddenCount} {t('pantryPage.showMore')}
                         </button>
                       )}
                       {!isSearching && expanded && catItems.length > 6 && (
@@ -229,7 +231,7 @@ export default function PantryPage() {
                             cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-manrope)'
                           }}
                         >
-                          Show less
+                          {t('pantryPage.showLess')}
                         </button>
                       )}
                     </div>
@@ -246,11 +248,11 @@ export default function PantryPage() {
           border: `1px solid ${COLORS.border}`, maxWidth: 520
         }}>
           <h3 style={{ fontFamily: 'var(--font-newsreader)', fontSize: '1.1rem', margin: '0 0 1rem', color: '#2c2c2c' }}>
-            Add an item
+            {t('pantryPage.addAnItem')}
           </h3>
           <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
             <input
-              type="text" placeholder="Ingredient name" value={newName}
+              type="text" placeholder={t('pantryPage.ingredientNamePlaceholder')} value={newName}
               onChange={(e) => setNewName(e.target.value)}
               style={{
                 flex: '1 1 160px', padding: '0.6rem 0.8rem', fontSize: '0.85rem',
@@ -259,7 +261,7 @@ export default function PantryPage() {
               }}
             />
             <input
-              type="text" placeholder="Category — e.g. Baking" value={newCategory}
+              type="text" placeholder={t('pantryPage.categoryPlaceholder')} value={newCategory}
               onChange={(e) => setNewCategory(e.target.value)}
               style={{
                 flex: '1 1 160px', padding: '0.6rem 0.8rem', fontSize: '0.85rem',
@@ -272,7 +274,7 @@ export default function PantryPage() {
               background: COLORS.primary, color: '#fff', fontSize: '0.85rem',
               fontWeight: 600, cursor: 'pointer', opacity: adding ? 0.7 : 1
             }}>
-              {adding ? 'Adding…' : 'Add'}
+              {adding ? t('pantryPage.adding') : t('pantryPage.add')}
             </button>
           </div>
         </div>

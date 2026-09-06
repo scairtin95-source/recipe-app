@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from '../../../src/lib/i18n/LocaleContext'
 
 const COLORS = {
   primary: '#9D3D2E',
@@ -18,6 +19,7 @@ interface CookingModeProps {
 }
 
 export default function CookingMode({ title, image, ingredients, steps, onClose }: CookingModeProps) {
+  const { t } = useTranslation()
   const [stepIndex, setStepIndex] = useState(0)
   const [checked, setChecked] = useState<Record<number, boolean>>({})
 
@@ -60,7 +62,7 @@ export default function CookingMode({ title, image, ingredients, steps, onClose 
                   {title}
                 </p>
                 <span style={{ color: '#d8dcc9', fontSize: '0.75rem' }}>
-                  Step {stepIndex + 1} of {steps.length}
+                  {t('cookingMode.stepLabel')} {stepIndex + 1} {t('cookingMode.ofLabel')} {steps.length}
                 </span>
               </div>
             </div>
@@ -86,7 +88,7 @@ export default function CookingMode({ title, image, ingredients, steps, onClose 
             fontFamily: 'var(--font-newsreader)', fontSize: '1.35rem', lineHeight: 1.5,
             color: '#2c2c2c', margin: 0
           }}>
-            {steps[stepIndex] || 'No step text available.'}
+            {steps[stepIndex] || t('cookingMode.noStepText')}
           </p>
         </div>
 
@@ -101,7 +103,7 @@ export default function CookingMode({ title, image, ingredients, steps, onClose 
               fontFamily: 'var(--font-manrope)', opacity: stepIndex === 0 ? 0.4 : 1
             }}
           >
-            Previous
+            {t('cookingMode.previous')}
           </button>
           <button
             onClick={() => {
@@ -113,7 +115,7 @@ export default function CookingMode({ title, image, ingredients, steps, onClose 
               fontFamily: 'var(--font-manrope)'
             }}
           >
-            {isLast ? 'Done' : 'Next'}
+            {isLast ? t('cookingMode.done') : t('cookingMode.next')}
           </button>
         </div>
 
@@ -124,7 +126,7 @@ export default function CookingMode({ title, image, ingredients, steps, onClose 
               fontSize: '0.7rem', fontWeight: 600, color: COLORS.tertiary,
               textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.6rem'
             }}>
-              Ingredients
+              {t('recipe.ingredients')}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {ingredients.map((item, i) => (

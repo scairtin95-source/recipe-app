@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../src/lib/supabase'
+import { useTranslation } from '../../src/lib/i18n/LocaleContext'
 
 const COLORS = {
   primary: '#9D3D2E',
@@ -13,6 +14,7 @@ const COLORS = {
 
 export default function LoginPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -27,7 +29,7 @@ export default function LoginPage() {
 
     setLoading(false)
     if (error) {
-      setError('Incorrect email or password.')
+      setError(t('loginPage.incorrectCredentials'))
       return
     }
     router.replace('/')
@@ -46,17 +48,17 @@ export default function LoginPage() {
           fontFamily: 'var(--font-newsreader)', fontSize: '1.6rem', fontWeight: 600,
           color: COLORS.text, margin: '0 0 0.4rem'
         }}>
-          Welcome back
+          {t('loginPage.welcomeBack')}
         </h1>
         <p style={{ fontSize: '0.85rem', color: '#8a8378', margin: '0 0 1.5rem' }}>
-          Sign in to Oliva
+          {t('loginPage.signInSubtitle')}
         </p>
 
         <label style={{
           fontSize: '0.7rem', fontWeight: 700, color: COLORS.secondary,
           textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.3rem'
         }}>
-          Email
+          {t('loginPage.email')}
         </label>
         <input
           type="email"
@@ -74,7 +76,7 @@ export default function LoginPage() {
           fontSize: '0.7rem', fontWeight: 700, color: COLORS.secondary,
           textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.3rem'
         }}>
-          Password
+          {t('loginPage.password')}
         </label>
         <input
           type="password"
@@ -101,7 +103,7 @@ export default function LoginPage() {
             opacity: loading ? 0.6 : 1
           }}
         >
-          {loading ? 'Signing in…' : 'Sign in'}
+          {loading ? t('loginPage.signingIn') : t('loginPage.signIn')}
         </button>
       </form>
     </div>
