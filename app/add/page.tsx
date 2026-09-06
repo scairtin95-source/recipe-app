@@ -425,26 +425,26 @@ export default function Home() {
               style={{ ...inputStyle, fontFamily: 'var(--font-newsreader)', fontSize: '1.1rem' }}
             />
 
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem' }}>
               <input
                 type="number" placeholder={t('addRecipePage.prepPlaceholder')} value={prepTimeMinutes ?? ''}
                 onChange={(e) => setPrepTimeMinutes(e.target.value ? Number(e.target.value) : null)}
-                style={{ ...inputStyle, flex: 1 }}
+                style={inputStyle}
               />
               <input
                 type="number" placeholder={t('addRecipePage.cookPlaceholder')} value={cookTimeMinutes ?? ''}
                 onChange={(e) => setCookTimeMinutes(e.target.value ? Number(e.target.value) : null)}
-                style={{ ...inputStyle, flex: 1 }}
+                style={inputStyle}
               />
               <input
                 type="number" placeholder={t('addRecipePage.totalPlaceholder')} value={totalTimeMinutes ?? ''}
                 onChange={(e) => setTotalTimeMinutes(e.target.value ? Number(e.target.value) : null)}
-                style={{ ...inputStyle, flex: 1 }}
+                style={inputStyle}
               />
               <input
                 type="number" placeholder={t('addRecipePage.servingsPlaceholder')} value={servings ?? ''}
                 onChange={(e) => setServings(e.target.value ? Number(e.target.value) : null)}
-                style={{ ...inputStyle, flex: 1 }}
+                style={inputStyle}
               />
             </div>
 
