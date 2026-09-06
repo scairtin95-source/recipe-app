@@ -82,18 +82,13 @@ export default function RecipesPage() {
   const [collections, setCollections] = useState<Collection[]>([])
   const [openPickerId, setOpenPickerId] = useState<number | null>(null)
   const [addStatusId, setAddStatusId] = useState<number | null>(null)
+  const [browseOpen, setBrowseOpen] = useState(false)
 
   useEffect(() => {
     async function loadRecipes() {
       if (!user) return
       setIsLoading(true)
       setError(null)
-      // Explicitly scoped to the logged-in user's own recipes. RLS alone
-      // would now also permit reading non-private recipes from fellow
-      // Table members (see the "select_table_shared_recipes" policy) —
-      // this page is specifically "my recipes", so it filters back down
-      // rather than relying on RLS's wider allowance. The Table page is
-      // where the broader shared view lives instead.
       const { data, error } = await supabase
         .from('recipes')
         .select('id, title, source_url, tags, image, is_private')
@@ -142,16 +137,11 @@ function decodeHtmlEntities(text: string | null): string {
     setActiveTags([])
   }
 
-  // Finds a representative image for a given tag — first recipe that has
-  // that tag (case-insensitive) and an image.
   function imageForTag(tag: string): string | null {
     const matches = recipes.filter((r) =>
       tagList(r.tags).some((t) => t.toLowerCase() === tag.toLowerCase()) && r.image
     )
     if (matches.length === 0) return null
-
-    // Prefer stable image hosts over Instagram's CDN, whose signed URLs
-    // expire after a while and would otherwise show as broken images.
     const stable = matches.find((r) => !r.image!.includes('cdninstagram.com'))
     return (stable ?? matches[0]).image
   }
@@ -162,9 +152,6 @@ function decodeHtmlEntities(text: string | null): string {
     ).length
   }
 
-  // Fixed-vocabulary tag labels (Cuisine/Course/Style) are translated via
-  // the dictionary. Freeform per-recipe tags (from Claude auto-tagging)
-  // are NOT translated here — they're open-ended text, not a fixed list.
   function tagLabel(tag: string): string {
     return t(`tags.${tag}`)
   }
@@ -229,153 +216,198 @@ function decodeHtmlEntities(text: string | null): string {
           style={{
             width: '100%', padding: '0.75rem 1.1rem', fontSize: '1rem',
             border: '1.5px solid #e5ddd3', borderRadius: 12,
-            marginBottom: '1.5rem', background: '#fff',
+            marginBottom: '1rem', background: '#fff',
             outline: 'none', boxSizing: 'border-box',
             fontFamily: 'var(--font-manrope)', color: '#2c2c2c'
           }}
         />
 
-        {/* Cuisine cards */}
-        {cuisineCards.length > 0 && (
-          <div style={{ marginBottom: '1.75rem' }}>
-            <p style={{
-              fontSize: '0.7rem', fontWeight: 600, color: COLORS.tertiary,
-              textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.6rem'
-            }}>
-              {t('recipesPage.cuisine')}
-            </p>
-            <div style={{ display: 'flex', gap: '0.6rem', overflowX: 'auto', paddingBottom: '4px' }}>
-              {cuisineCards.map((c, i) => {
-                const isActive = activeTags.includes(c.tag)
-                return (
-                  <button
-                    key={c.tag}
-                    onClick={() => toggleTag(c.tag)}
-                    style={{
-                      minWidth: 130, height: 140, borderRadius: 14, position: 'relative',
-                      overflow: 'hidden', flexShrink: 0, border: isActive ? `2.5px solid ${COLORS.primary}` : 'none',
-                      cursor: 'pointer', padding: 0, background: CARD_COLORS[i % CARD_COLORS.length]
-                    }}
-                  >
-                    {c.image && (
-                      <img
-                        src={c.image}
-                        alt={c.tag}
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                        style={{
-                          position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover'
-                        }}
-                      />
-                    )}
-                    <div style={{
-                      position: 'absolute', inset: 0,
-                      background: 'linear-gradient(transparent 40%, rgba(0,0,0,0.65))'
-                    }} />
-                    <div style={{ position: 'absolute', bottom: 10, left: 12, right: 12, textAlign: 'left' }}>
-                      <p style={{ color: '#fdf8f5', fontSize: '0.95rem', fontWeight: 600, margin: 0 }}>
-                        {tagLabel(c.tag)}
-                      </p>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          flexWrap: 'wrap', gap: '0.75rem', marginBottom: browseOpen ? '1.75rem' : '1.5rem'
+        }}>
+          <button
+            onClick={() => setBrowseOpen((v) => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.35rem',
+              background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+              fontSize: '0.85rem', fontWeight: 600, color: COLORS.secondary,
+              fontFamily: 'var(--font-manrope)'
+            }}
+          >
+            {browseOpen ? t('recipesPage.hideCategories') : t('recipesPage.browseByCategory')}
+            <span>{browseOpen ? '▴' : '▾'}</span>
+          </button>
 
-        {/* Course cards */}
-        {courseCards.length > 0 && (
-          <div style={{ marginBottom: '1.75rem' }}>
-            <p style={{
-              fontSize: '0.7rem', fontWeight: 600, color: COLORS.tertiary,
-              textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.6rem'
-            }}>
-              {t('recipesPage.course')}
-            </p>
-            <div style={{ display: 'flex', gap: '0.6rem', overflowX: 'auto', paddingBottom: '4px' }}>
-              {courseCards.map((c, i) => {
-                const isActive = activeTags.includes(c.tag)
-                return (
-                  <button
-                    key={c.tag}
-                    onClick={() => toggleTag(c.tag)}
-                    style={{
-                      minWidth: 105, height: 105, borderRadius: 14, position: 'relative',
-                      overflow: 'hidden', flexShrink: 0, border: isActive ? `2.5px solid ${COLORS.primary}` : 'none',
-                      cursor: 'pointer', padding: 0, background: CARD_COLORS[(i + 3) % CARD_COLORS.length]
-                    }}
-                  >
-                    {c.image && (
-                      <img
-                        src={c.image}
-                        alt={c.tag}
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                        style={{
-                          position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover'
-                        }}
-                      />
-                    )}
-                    <div style={{
-                      position: 'absolute', inset: 0,
-                      background: 'linear-gradient(transparent 40%, rgba(0,0,0,0.6))'
-                    }} />
-                    <p style={{
-                      position: 'absolute', bottom: 8, left: 10, color: '#fdf8f5',
-                      fontSize: '0.8rem', fontWeight: 600, margin: 0
-                    }}>
-                      {tagLabel(c.tag)}
-                    </p>
-                  </button>
-                )
-              })}
+          {!browseOpen && activeTags.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.8rem', color: '#8a8378' }}>{t('recipesPage.filteredByPrefix')}</span>
+              {activeTags.map((tag) => (
+                <span key={tag} style={{
+                  fontSize: '0.75rem', padding: '0.2rem 0.65rem', borderRadius: 999,
+                  background: '#efe6d8', color: COLORS.tertiary, fontWeight: 600
+                }}>
+                  {tagLabel(tag)}
+                </span>
+              ))}
+              <button
+                onClick={clearTags}
+                style={{
+                  fontSize: '0.8rem', color: COLORS.primary, background: 'none', border: 'none',
+                  cursor: 'pointer', fontWeight: 600, textDecoration: 'underline', fontFamily: 'var(--font-manrope)'
+                }}
+              >
+                {t('recipesPage.clearFilters')}
+              </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Style pills */}
-        {styleCards.length > 0 && (
-          <div style={{ marginBottom: '2rem' }}>
-            <p style={{
-              fontSize: '0.7rem', fontWeight: 600, color: COLORS.tertiary,
-              textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.6rem'
-            }}>
-              {t('recipesPage.style')}
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
-              {styleCards.map((c, i) => {
-                const isActive = activeTags.includes(c.tag)
-                return (
-                  <button
-                    key={c.tag}
-                    onClick={() => toggleTag(c.tag)}
-                    style={{
-                      padding: '0.5rem 1.1rem', borderRadius: 999, border: 'none',
-                      background: CARD_COLORS[i % CARD_COLORS.length], color: '#fdf8f5',
-                      fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
-                      opacity: isActive ? 1 : 0.75,
-                      outline: isActive ? `2.5px solid ${COLORS.primary}` : 'none',
-                      outlineOffset: '2px'
-                    }}
-                  >
-                    {tagLabel(c.tag)} · {c.count}
-                  </button>
-                )
-              })}
-              {activeTags.length > 0 && (
-                <button
-                  onClick={clearTags}
-                  style={{
-                    fontSize: '0.8rem', padding: '0.35rem 0.9rem', borderRadius: 999,
-                    border: 'none', background: 'transparent', color: COLORS.primary,
-                    fontFamily: 'var(--font-manrope)', fontWeight: 600, cursor: 'pointer',
-                    textDecoration: 'underline'
-                  }}
-                >
-                  {t('recipesPage.clearFilters')}
-                </button>
-              )}
-            </div>
-          </div>
+        {browseOpen && (
+          <>
+            {/* Cuisine cards */}
+            {cuisineCards.length > 0 && (
+              <div style={{ marginBottom: '1.75rem' }}>
+                <p style={{
+                  fontSize: '0.7rem', fontWeight: 600, color: COLORS.tertiary,
+                  textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.6rem'
+                }}>
+                  {t('recipesPage.cuisine')}
+                </p>
+                <div style={{ display: 'flex', gap: '0.6rem', overflowX: 'auto', paddingBottom: '4px' }}>
+                  {cuisineCards.map((c, i) => {
+                    const isActive = activeTags.includes(c.tag)
+                    return (
+                      <button
+                        key={c.tag}
+                        onClick={() => toggleTag(c.tag)}
+                        style={{
+                          minWidth: 130, height: 140, borderRadius: 14, position: 'relative',
+                          overflow: 'hidden', flexShrink: 0, border: isActive ? `2.5px solid ${COLORS.primary}` : 'none',
+                          cursor: 'pointer', padding: 0, background: CARD_COLORS[i % CARD_COLORS.length]
+                        }}
+                      >
+                        {c.image && (
+                          <img
+                            src={c.image}
+                            alt={c.tag}
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                            style={{
+                              position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover'
+                            }}
+                          />
+                        )}
+                        <div style={{
+                          position: 'absolute', inset: 0,
+                          background: 'linear-gradient(transparent 40%, rgba(0,0,0,0.65))'
+                        }} />
+                        <div style={{ position: 'absolute', bottom: 10, left: 12, right: 12, textAlign: 'left' }}>
+                          <p style={{ color: '#fdf8f5', fontSize: '0.95rem', fontWeight: 600, margin: 0 }}>
+                            {tagLabel(c.tag)}
+                          </p>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Course cards */}
+            {courseCards.length > 0 && (
+              <div style={{ marginBottom: '1.75rem' }}>
+                <p style={{
+                  fontSize: '0.7rem', fontWeight: 600, color: COLORS.tertiary,
+                  textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.6rem'
+                }}>
+                  {t('recipesPage.course')}
+                </p>
+                <div style={{ display: 'flex', gap: '0.6rem', overflowX: 'auto', paddingBottom: '4px' }}>
+                  {courseCards.map((c, i) => {
+                    const isActive = activeTags.includes(c.tag)
+                    return (
+                      <button
+                        key={c.tag}
+                        onClick={() => toggleTag(c.tag)}
+                        style={{
+                          minWidth: 105, height: 105, borderRadius: 14, position: 'relative',
+                          overflow: 'hidden', flexShrink: 0, border: isActive ? `2.5px solid ${COLORS.primary}` : 'none',
+                          cursor: 'pointer', padding: 0, background: CARD_COLORS[(i + 3) % CARD_COLORS.length]
+                        }}
+                      >
+                        {c.image && (
+                          <img
+                            src={c.image}
+                            alt={c.tag}
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                            style={{
+                              position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover'
+                            }}
+                          />
+                        )}
+                        <div style={{
+                          position: 'absolute', inset: 0,
+                          background: 'linear-gradient(transparent 40%, rgba(0,0,0,0.6))'
+                        }} />
+                        <p style={{
+                          position: 'absolute', bottom: 8, left: 10, color: '#fdf8f5',
+                          fontSize: '0.8rem', fontWeight: 600, margin: 0
+                        }}>
+                          {tagLabel(c.tag)}
+                        </p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Style pills */}
+            {styleCards.length > 0 && (
+              <div style={{ marginBottom: '2rem' }}>
+                <p style={{
+                  fontSize: '0.7rem', fontWeight: 600, color: COLORS.tertiary,
+                  textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.6rem'
+                }}>
+                  {t('recipesPage.style')}
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+                  {styleCards.map((c, i) => {
+                    const isActive = activeTags.includes(c.tag)
+                    return (
+                      <button
+                        key={c.tag}
+                        onClick={() => toggleTag(c.tag)}
+                        style={{
+                          padding: '0.5rem 1.1rem', borderRadius: 999, border: 'none',
+                          background: CARD_COLORS[i % CARD_COLORS.length], color: '#fdf8f5',
+                          fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
+                          opacity: isActive ? 1 : 0.75,
+                          outline: isActive ? `2.5px solid ${COLORS.primary}` : 'none',
+                          outlineOffset: '2px'
+                        }}
+                      >
+                        {tagLabel(c.tag)} · {c.count}
+                      </button>
+                    )
+                  })}
+                  {activeTags.length > 0 && (
+                    <button
+                      onClick={clearTags}
+                      style={{
+                        fontSize: '0.8rem', padding: '0.35rem 0.9rem', borderRadius: 999,
+                        border: 'none', background: 'transparent', color: COLORS.primary,
+                        fontFamily: 'var(--font-manrope)', fontWeight: 600, cursor: 'pointer',
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      {t('recipesPage.clearFilters')}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {isLoading && <p style={{ color: '#8a8378', textAlign: 'center', padding: '3rem', fontFamily: 'var(--font-manrope)' }}>{t('recipesPage.loading')}</p>}

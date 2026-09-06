@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '../../../src/lib/supabase'
 import CookingMode from './CookingMode'
 import { upgradeImageUrl } from '../../../src/lib/imageUrl'
 import { useTranslation } from '../../../src/lib/i18n/LocaleContext'
+import { useAuth } from '../../../src/lib/AuthContext'
 
 
 const COLORS = {
@@ -340,7 +341,9 @@ const editLabelStyle: React.CSSProperties = {
 
 export default function RecipePage() {
   const { id } = useParams()
+  const router = useRouter()
   const { t, locale } = useTranslation()
+  const { user } = useAuth()
   const [recipe, setRecipe] = useState<any>(null)
   const [imperial, setImperial] = useState(false)
   const [scale, setScale] = useState(1)
@@ -373,6 +376,8 @@ export default function RecipePage() {
   const [translation, setTranslation] = useState<{ title: string; ingredients: string[]; steps: string[] } | null>(null)
   const [translating, setTranslating] = useState(false)
   const [showOriginal, setShowOriginal] = useState(false)
+  const [savingCopy, setSavingCopy] = useState(false)
+  const [copySaved, setCopySaved] = useState(false)
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -480,6 +485,36 @@ export default function RecipePage() {
       setAddStatus(t('recipeDetail.added'))
       setSelectedCollection('')
     }
+  }
+
+  const saveCopy = async () => {
+    if (!recipe || !user) return
+    setSavingCopy(true)
+    const { error } = await supabase.from('recipes').insert([{
+      title: recipe.title,
+      ingredients: recipe.ingredients,
+      steps: recipe.steps,
+      tags: recipe.tags,
+      image: recipe.image,
+      source_url: recipe.source_url,
+      prep_time_minutes: recipe.prep_time_minutes,
+      cook_time_minutes: recipe.cook_time_minutes,
+      total_time_minutes: recipe.total_time_minutes,
+      servings: recipe.servings,
+      estimated_calories_per_serving: recipe.estimated_calories_per_serving,
+      estimated_protein_g_per_serving: recipe.estimated_protein_g_per_serving,
+      estimated_fat_g_per_serving: recipe.estimated_fat_g_per_serving,
+      estimated_carbs_g_per_serving: recipe.estimated_carbs_g_per_serving,
+      user_id: user.id,
+      is_private: true,
+    }])
+    if (!error) {
+      setCopySaved(true)
+      setTimeout(() => setCopySaved(false), 3000)
+    } else {
+      console.error('saveCopy error:', error)
+    }
+    setSavingCopy(false)
   }
 
   const estimateCalories = async () => {
@@ -648,6 +683,7 @@ export default function RecipePage() {
     </div>
   )
 
+  const isOwner = !!user && recipe.user_id === user.id
   const showingTranslation = translation && !showOriginal
 
   const baseIngredients = parseIngredients(recipe.ingredients)
@@ -689,6 +725,20 @@ export default function RecipePage() {
 
       <main style={{ maxWidth: 780, margin: '0 auto', padding: '2.5rem 1rem' }}>
 
+        {!editMode && (
+          <button
+            onClick={() => router.back()}
+            style={{
+              background: 'none', border: 'none', padding: 0, marginBottom: '1rem',
+              color: COLORS.secondary, fontSize: '0.85rem', fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'var(--font-manrope)',
+              display: 'flex', alignItems: 'center', gap: '0.3rem'
+            }}
+          >
+            ← {t('common.back')}
+          </button>
+        )}
+
         <div style={{ width: '100%', height: 280, overflow: 'hidden', borderRadius: 16, marginBottom: '1.5rem', border: '1px solid #eee3d8', background: '#f1e9dd', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <RecipeImage src={upgradeImageUrl(editMode ? editImage : recipe.image)} alt={displayTitle} variant="full" t={t} />
         </div>
@@ -722,16 +772,38 @@ export default function RecipePage() {
           )}
 
           {!editMode && (
-            <button
-              onClick={startEdit}
-              style={{
-                flexShrink: 0, padding: '0.4rem 0.9rem', borderRadius: 8, border: '1.5px solid #eee3d8',
-                background: '#fff', color: COLORS.secondary, fontSize: '0.8rem', fontWeight: 600,
-                cursor: 'pointer', fontFamily: 'var(--font-manrope)', whiteSpace: 'nowrap'
-              }}
-            >
-              ✎ {t('recipeDetail.editRecipe')}
-            </button>
+            isOwner ? (
+              <button
+                onClick={startEdit}
+                style={{
+                  flexShrink: 0, padding: '0.4rem 0.9rem', borderRadius: 8, border: '1.5px solid #eee3d8',
+                  background: '#fff', color: COLORS.secondary, fontSize: '0.8rem', fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'var(--font-manrope)', whiteSpace: 'nowrap'
+                }}
+              >
+                ✎ {t('recipeDetail.editRecipe')}
+              </button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem', flexShrink: 0 }}>
+                <button
+                  onClick={saveCopy}
+                  disabled={savingCopy}
+                  style={{
+                    padding: '0.4rem 0.9rem', borderRadius: 8, border: 'none',
+                    background: COLORS.secondary, color: '#fff', fontSize: '0.8rem', fontWeight: 600,
+                    cursor: savingCopy ? 'default' : 'pointer', fontFamily: 'var(--font-manrope)',
+                    whiteSpace: 'nowrap', opacity: savingCopy ? 0.7 : 1
+                  }}
+                >
+                  {savingCopy ? t('recipeDetail.saving') : `+ ${t('recipeDetail.saveCopy')}`}
+                </button>
+                {copySaved && (
+                  <span style={{ fontSize: '0.75rem', color: COLORS.secondary, fontWeight: 600 }}>
+                    {t('recipeDetail.copySaved')}
+                  </span>
+                )}
+              </div>
+            )
           )}
         </div>
 

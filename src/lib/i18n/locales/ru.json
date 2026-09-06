@@ -16,7 +16,8 @@
     "edit": "Редактировать",
     "search": "Поиск",
     "loading": "Загрузка...",
-    "private": "Приватный"
+    "private": "Приватный",
+    "back": "Назад"
   },
   "recipe": {
     "ingredients": "Ингредиенты",
@@ -43,7 +44,10 @@
   "untitledRecipe": "Рецепт без названия",
   "addToCollection": "Добавить в коллекцию",
   "noCollectionsYet": "Пока нет коллекций",
-  "added": "Добавлено!"
+  "added": "Добавлено!",
+  "browseByCategory": "Просмотр по категориям",
+  "hideCategories": "Скрыть категории",
+  "filteredByPrefix": "Отфильтровано по:"
   },
   "tags": {
   "spanish": "Испанская", "italian": "Итальянская", "french": "Французская",
@@ -119,7 +123,9 @@
   "hoursShort": "ч",
   "translating": "Перевод…",
   "showOriginal": "Показать оригинал",
-  "showTranslation": "Показать перевод"
+  "showTranslation": "Показать перевод",
+  "saveCopy": "Сохранить копию",
+  "copySaved": "Сохранено в ваши рецепты!"
 },
 "pantryPage": {
   "title": "Ваша кладовая",

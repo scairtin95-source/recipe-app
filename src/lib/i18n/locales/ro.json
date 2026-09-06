@@ -16,7 +16,8 @@
     "edit": "Editează",
     "search": "Caută",
     "loading": "Se încarcă...",
-    "private": "Privat"
+    "private": "Privat",
+    "back": "Înapoi"
   },
   "recipe": {
     "ingredients": "Ingrediente",
@@ -43,7 +44,10 @@
   "untitledRecipe": "Rețetă fără titlu",
   "addToCollection": "Adaugă în colecție",
   "noCollectionsYet": "Nu există încă colecții",
-  "added": "Adăugat!"
+  "added": "Adăugat!",
+  "browseByCategory": "Răsfoiește după categorie",
+  "hideCategories": "Ascunde categoriile",
+  "filteredByPrefix": "Filtrat după:"
   },
   "tags": {
   "spanish": "Spaniolă", "italian": "Italiană", "french": "Franțuzească",
@@ -119,7 +123,9 @@
   "hoursShort": "h",
   "translating": "Se traduce…",
   "showOriginal": "Arată originalul",
-  "showTranslation": "Arată traducerea"
+  "showTranslation": "Arată traducerea",
+  "saveCopy": "Salvează o copie",
+  "copySaved": "Salvat în rețetele tale!"
 },
 "pantryPage": {
   "title": "Cămara ta",

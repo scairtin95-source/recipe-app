@@ -16,7 +16,8 @@
     "edit": "Editar",
     "search": "Buscar",
     "loading": "Cargando...",
-    "private": "Privado"
+    "private": "Privado",
+    "back": "Atrás"
   },
   "recipe": {
     "ingredients": "Ingredientes",
@@ -43,7 +44,10 @@
   "untitledRecipe": "Receta sin título",
   "addToCollection": "Añadir a colección",
   "noCollectionsYet": "Aún no hay colecciones",
-  "added": "¡Añadido!"
+  "added": "¡Añadido!",
+  "browseByCategory": "Explorar por categoría",
+  "hideCategories": "Ocultar categorías",
+  "filteredByPrefix": "Filtrado por:"
   },
   "tags": {
   "spanish": "Española", "italian": "Italiana", "french": "Francesa",
@@ -119,7 +123,9 @@
   "hoursShort": "h",
   "translating": "Traduciendo…",
   "showOriginal": "Ver original",
-  "showTranslation": "Ver traducción"
+  "showTranslation": "Ver traducción",
+  "saveCopy": "Guardar una copia",
+  "copySaved": "¡Guardado en tus recetas!"
 },
 "pantryPage": {
   "title": "Tu despensa",

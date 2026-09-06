@@ -16,7 +16,8 @@
     "edit": "Edit",
     "search": "Search",
     "loading": "Loading...",
-    "private": "Private"
+    "private": "Private",
+    "back": "Back"
   },
   "recipe": {
     "ingredients": "Ingredients",
@@ -43,7 +44,10 @@
   "untitledRecipe": "Untitled recipe",
   "addToCollection": "Add to collection",
   "noCollectionsYet": "No collections yet",
-  "added": "Added!"
+  "added": "Added!",
+  "browseByCategory": "Browse by category",
+  "hideCategories": "Hide categories",
+  "filteredByPrefix": "Filtered by:"
   },
   "tags": {
   "spanish": "Spanish", "italian": "Italian", "french": "French",
@@ -119,7 +123,9 @@
   "hoursShort": "hr",
   "translating": "Translating…",
   "showOriginal": "Show original",
-  "showTranslation": "Show translation"
+  "showTranslation": "Show translation",
+  "saveCopy": "Save a copy",
+  "copySaved": "Saved to your recipes!"
 },
 "pantryPage": {
   "title": "Your Pantry",
