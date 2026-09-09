@@ -84,7 +84,7 @@
   "ingredientsChangedNote": "Ingredientele s-au schimbat — estimarea caloriilor salvată va fi ștearsă pentru a nu afișa o valoare depășită.",
   "saving": "Se salvează…",
   "saveChanges": "Salvează modificările",
-  "viewOriginal": "Vezi originalul",
+  "viewOriginal": "Rețeta originală de pe",
   "prep": "Preparare",
   "cook": "Gătire",
   "total": "Total",
@@ -122,10 +122,17 @@
   "minutesShort": "min",
   "hoursShort": "h",
   "translating": "Se traduce…",
-  "showOriginal": "Arată originalul",
-  "showTranslation": "Arată traducerea",
+  "showOriginal": "Vezi în engleză",
+  "showTranslation": "Vezi traducerea",
   "saveCopy": "Salvează o copie",
-  "copySaved": "Salvat în rețetele tale!"
+  "copySaved": "Salvat în rețetele tale!",
+  "deleteRecipe": "Șterge rețeta",
+  "deleteConfirm": "Ștergi această rețetă? Nu poate fi anulat.",
+  "deleting": "Se șterge…",
+  "deleteFailedAlert": "Ceva nu a mers bine la ștergerea rețetei. Te rugăm să încerci din nou.",
+  "uploadPhoto": "Încarcă fotografie",
+  "uploading": "Se încarcă…",
+  "uploadFailedAlert": "Ceva nu a mers bine la încărcarea fotografiei. Te rugăm să încerci din nou."
 },
 "pantryPage": {
   "title": "Cămara ta",
@@ -215,7 +222,10 @@
   "enterTitleError": "Te rugăm să introduci un titlu",
   "loginRequiredError": "Trebuie să fii conectat pentru a salva o rețetă.",
   "savingErrorPrefix": "Eroare la salvare:",
-  "recipeSaved": "Rețetă salvată!"
+  "recipeSaved": "Rețetă salvată!",
+  "uploadPhoto": "Încarcă fotografie",
+  "uploading": "Se încarcă…",
+  "uploadFailedAlert": "Ceva nu a mers bine la încărcarea fotografiei. Te rugăm să încerci din nou."
 },
 "tablePage": {
   "subtitlePrefix": "Rețete distribuite de toți cei de la masă:",

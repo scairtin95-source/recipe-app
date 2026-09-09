@@ -84,7 +84,7 @@
   "ingredientsChangedNote": "Los ingredientes cambiaron — la estimación de calorías guardada se borrará para no mostrar un valor desactualizado.",
   "saving": "Guardando…",
   "saveChanges": "Guardar cambios",
-  "viewOriginal": "Ver original",
+  "viewOriginal": "Receta original de",
   "prep": "Prep.",
   "cook": "Cocción",
   "total": "Total",
@@ -122,10 +122,17 @@
   "minutesShort": "min",
   "hoursShort": "h",
   "translating": "Traduciendo…",
-  "showOriginal": "Ver original",
+  "showOriginal": "Ver en inglés",
   "showTranslation": "Ver traducción",
   "saveCopy": "Guardar una copia",
-  "copySaved": "¡Guardado en tus recetas!"
+  "copySaved": "¡Guardado en tus recetas!",
+  "deleteRecipe": "Eliminar receta",
+  "deleteConfirm": "¿Eliminar esta receta? No se puede deshacer.",
+  "deleting": "Eliminando…",
+  "deleteFailedAlert": "Algo salió mal al eliminar la receta. Inténtalo de nuevo.",
+  "uploadPhoto": "Subir foto",
+  "uploading": "Subiendo…",
+  "uploadFailedAlert": "Algo salió mal al subir la foto. Inténtalo de nuevo."
 },
 "pantryPage": {
   "title": "Tu despensa",
@@ -215,7 +222,10 @@
   "enterTitleError": "Por favor, introduce un título",
   "loginRequiredError": "Necesitas iniciar sesión para guardar una receta.",
   "savingErrorPrefix": "Error al guardar:",
-  "recipeSaved": "¡Receta guardada!"
+  "recipeSaved": "¡Receta guardada!",
+  "uploadPhoto": "Subir foto",
+  "uploading": "Subiendo…",
+  "uploadFailedAlert": "Algo salió mal al subir la foto. Inténtalo de nuevo."
 },
 "tablePage": {
   "subtitlePrefix": "Recetas compartidas por todos en la mesa:",

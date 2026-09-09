@@ -84,7 +84,7 @@
   "ingredientsChangedNote": "Ingredients changed — the saved calorie estimate will be cleared so it doesn't show a stale figure.",
   "saving": "Saving…",
   "saveChanges": "Save changes",
-  "viewOriginal": "View original",
+  "viewOriginal": "Original recipe from",
   "prep": "Prep",
   "cook": "Cook",
   "total": "Total",
@@ -122,10 +122,17 @@
   "minutesShort": "min",
   "hoursShort": "hr",
   "translating": "Translating…",
-  "showOriginal": "Show original",
-  "showTranslation": "Show translation",
+  "showOriginal": "See in English",
+  "showTranslation": "See translated version",
   "saveCopy": "Save a copy",
-  "copySaved": "Saved to your recipes!"
+  "copySaved": "Saved to your recipes!",
+  "deleteRecipe": "Delete recipe",
+  "deleteConfirm": "Delete this recipe? This can't be undone.",
+  "deleting": "Deleting…",
+  "deleteFailedAlert": "Something went wrong deleting this recipe. Please try again.",
+  "uploadPhoto": "Upload photo",
+  "uploading": "Uploading…",
+  "uploadFailedAlert": "Something went wrong uploading the photo. Please try again."
 },
 "pantryPage": {
   "title": "Your Pantry",
@@ -215,7 +222,10 @@
   "enterTitleError": "Please enter a title",
   "loginRequiredError": "You need to be logged in to save a recipe.",
   "savingErrorPrefix": "Error saving:",
-  "recipeSaved": "Recipe saved!"
+  "recipeSaved": "Recipe saved!",
+  "uploadPhoto": "Upload photo",
+  "uploading": "Uploading…",
+  "uploadFailedAlert": "Something went wrong uploading the photo. Please try again."
 },
 "tablePage": {
   "subtitlePrefix": "Recipes shared by everyone at the table:",

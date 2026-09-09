@@ -68,7 +68,8 @@ export default function LoginPage() {
           autoFocus
           style={{
             width: '100%', padding: '0.6rem 0.8rem', borderRadius: 8, border: '1.5px solid #e5ddd3',
-            fontSize: '0.9rem', marginBottom: '1rem', boxSizing: 'border-box', fontFamily: 'var(--font-manrope)'
+            fontSize: '0.9rem', marginBottom: '1rem', boxSizing: 'border-box', fontFamily: 'var(--font-manrope)',
+            color: COLORS.text, background: '#fff'
           }}
         />
 
@@ -85,7 +86,8 @@ export default function LoginPage() {
           required
           style={{
             width: '100%', padding: '0.6rem 0.8rem', borderRadius: 8, border: '1.5px solid #e5ddd3',
-            fontSize: '0.9rem', marginBottom: '1.25rem', boxSizing: 'border-box', fontFamily: 'var(--font-manrope)'
+            fontSize: '0.9rem', marginBottom: '1.25rem', boxSizing: 'border-box', fontFamily: 'var(--font-manrope)',
+            color: COLORS.text, background: '#fff'
           }}
         />
 

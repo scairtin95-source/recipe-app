@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '../../../src/lib/supabase'
 import CookingMode from './CookingMode'
@@ -182,6 +182,29 @@ function decodeHtmlEntities(text: string | null): string {
     .replace(/&gt;/g, '>')
 }
 
+function getDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace('www.', '')
+  } catch {
+    return url
+  }
+}
+
+async function uploadImageFile(file: File, keyPrefix: string): Promise<string | null> {
+  const ext = file.name.split('.').pop() || 'jpg'
+  const path = `${keyPrefix}-${Date.now()}.${ext}`
+  const { error } = await supabase.storage.from('recipe-images').upload(path, file, {
+    cacheControl: '3600',
+    upsert: false,
+  })
+  if (error) {
+    console.error('uploadImageFile error:', error)
+    return null
+  }
+  const { data } = supabase.storage.from('recipe-images').getPublicUrl(path)
+  return data.publicUrl
+}
+
 function parseIntOrNull(value: string): number | null {
   const n = parseInt(value, 10)
   return isNaN(n) || n <= 0 ? null : n
@@ -276,6 +299,7 @@ function RecipeImage({
 }: { src: string | null; alt: string; size?: number; variant?: 'compact' | 'full'; t: (key: string) => string }) {
   const [broken, setBroken] = useState(false)
   const [lowRes, setLowRes] = useState(false)
+  const [loaded, setLoaded] = useState(false)
   const failed = !src || broken
 
   if (failed && variant === 'full') {
@@ -310,12 +334,15 @@ function RecipeImage({
         if (variant === 'full' && (img.naturalWidth < LOW_RES_WIDTH_THRESHOLD || img.naturalHeight < LOW_RES_HEIGHT_THRESHOLD)) {
           setLowRes(true)
         }
+        setLoaded(true)
       }}
-      style={
-        lowRes
-          ? { maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain' }
-          : { width: '100%', height: '100%', objectFit: 'cover' }
-      }
+      style={{
+        ...(lowRes
+          ? { maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain' as const }
+          : { width: '100%', height: '100%', objectFit: 'cover' as const }),
+        opacity: loaded ? 1 : 0,
+        transition: 'opacity 0.15s ease',
+      }}
     />
   )
 }
@@ -378,6 +405,9 @@ export default function RecipePage() {
   const [showOriginal, setShowOriginal] = useState(false)
   const [savingCopy, setSavingCopy] = useState(false)
   const [copySaved, setCopySaved] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -515,6 +545,38 @@ export default function RecipePage() {
       console.error('saveCopy error:', error)
     }
     setSavingCopy(false)
+  }
+
+    const deleteRecipe = async () => {
+    if (!recipe) return
+    if (!window.confirm(t('recipeDetail.deleteConfirm'))) return
+    setDeleting(true)
+    // Clean up any collection links pointing at this recipe first, so
+    // deleting it doesn't leave orphaned rows in collection_recipes.
+    // recipe_translations is handled automatically via ON DELETE CASCADE.
+    await supabase.from('collection_recipes').delete().eq('recipe_id', recipe.id)
+    const { error } = await supabase.from('recipes').delete().eq('id', recipe.id)
+    if (error) {
+      console.error('deleteRecipe error:', error)
+      alert(t('recipeDetail.deleteFailedAlert'))
+      setDeleting(false)
+    } else {
+      router.push('/recipes')
+    }
+  }
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !recipe) return
+    setUploadingImage(true)
+    const url = await uploadImageFile(file, `recipe-${recipe.id}`)
+    if (url) {
+      setEditImage(url)
+    } else {
+      alert(t('recipeDetail.uploadFailedAlert'))
+    }
+    setUploadingImage(false)
   }
 
   const estimateCalories = async () => {
@@ -740,7 +802,13 @@ export default function RecipePage() {
         )}
 
         <div style={{ width: '100%', height: 280, overflow: 'hidden', borderRadius: 16, marginBottom: '1.5rem', border: '1px solid #eee3d8', background: '#f1e9dd', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <RecipeImage src={upgradeImageUrl(editMode ? editImage : recipe.image)} alt={displayTitle} variant="full" t={t} />
+          <RecipeImage
+            key={upgradeImageUrl(editMode ? editImage : recipe.image) || 'no-image'}
+            src={upgradeImageUrl(editMode ? editImage : recipe.image)}
+            alt={displayTitle}
+            variant="full"
+            t={t}
+          />
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: editMode ? '1rem' : '0.25rem' }}>
@@ -821,7 +889,7 @@ export default function RecipePage() {
                   textDecoration: 'underline'
                 }}
               >
-                {showOriginal ? t('recipeDetail.showTranslation') : t('recipeDetail.showOriginal')}
+                🌐 {showOriginal ? t('recipeDetail.showTranslation') : t('recipeDetail.showOriginal')}
               </button>
             ) : null}
           </p>
@@ -829,7 +897,7 @@ export default function RecipePage() {
 
         {editMode ? (
           <>
-            <div style={{ marginBottom: '1rem' }}>
+                      <div style={{ marginBottom: '1rem' }}>
               <label style={editLabelStyle}>{t('recipeDetail.imageUrlLabel')}</label>
               <input
                 type="text"
@@ -838,6 +906,27 @@ export default function RecipePage() {
                 placeholder={t('recipeDetail.imageUrlPlaceholder')}
                 style={editInputStyle}
               />
+              <div style={{ marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingImage}
+                  style={{
+                    padding: '0.4rem 0.8rem', borderRadius: 8, border: '1.5px dashed #d8cfc0',
+                    background: 'transparent', color: COLORS.secondary, fontSize: '0.8rem', fontWeight: 600,
+                    cursor: uploadingImage ? 'default' : 'pointer', fontFamily: 'var(--font-manrope)'
+                  }}
+                >
+                  {uploadingImage ? t('recipeDetail.uploading') : `📷 ${t('recipeDetail.uploadPhoto')}`}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  style={{ display: 'none' }}
+                />
+              </div>
             </div>
 
             <div style={{ marginBottom: '1rem' }}>
@@ -986,22 +1075,22 @@ export default function RecipePage() {
                 {t('common.cancel')}
               </button>
             </div>
+                        <button
+              onClick={deleteRecipe}
+              disabled={deleting}
+              style={{
+                background: 'none', border: 'none', padding: 0, marginBottom: '1rem',
+                color: COLORS.primary, fontSize: '0.8rem', fontWeight: 600,
+                cursor: deleting ? 'default' : 'pointer', fontFamily: 'var(--font-manrope)',
+                textDecoration: 'underline', opacity: deleting ? 0.6 : 1
+              }}
+            >
+              {deleting ? t('recipeDetail.deleting') : `🗑 ${t('recipeDetail.deleteRecipe')}`}
+            </button>
           </>
         ) : (
           <>
-            {recipe.source_url && (
-              <a href={recipe.source_url} target="_blank" style={{
-                display: 'inline-block',
-                color: COLORS.primary,
-                textDecoration: 'none',
-                fontSize: '0.85rem',
-                fontFamily: 'var(--font-manrope)',
-                fontWeight: 600,
-                marginBottom: '1rem'
-              }}>
-                {t('recipeDetail.viewOriginal')} ↗
-              </a>
-            )}
+          
 
             {metaBadges.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.5rem' }}>
@@ -1061,6 +1150,20 @@ export default function RecipePage() {
                   </p>
                 )}
               </div>
+            )}
+
+                       {recipe.source_url && (
+              <a href={recipe.source_url} target="_blank" style={{
+                display: 'block',
+                color: '#8a8378',
+                textDecoration: 'none',
+                fontSize: '0.8rem',
+                fontFamily: 'var(--font-manrope)',
+                fontStyle: 'italic',
+                marginBottom: '1rem'
+              }}>
+                {t('recipeDetail.viewOriginal')} {getDomain(recipe.source_url)} ↗
+              </a>
             )}
 
             <div style={{

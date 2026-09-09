@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { supabase } from '../../src/lib/supabase'
 import { useAuth } from '../../src/lib/AuthContext'
 import { useTranslation } from '../../src/lib/i18n/LocaleContext'
@@ -55,6 +55,21 @@ function getDomain(url: string): string {
   }
 }
 
+async function uploadImageFile(file: File, keyPrefix: string): Promise<string | null> {
+  const ext = file.name.split('.').pop() || 'jpg'
+  const path = `${keyPrefix}-${Date.now()}.${ext}`
+  const { error } = await supabase.storage.from('recipe-images').upload(path, file, {
+    cacheControl: '3600',
+    upsert: false,
+  })
+  if (error) {
+    console.error('uploadImageFile error:', error)
+    return null
+  }
+  const { data } = supabase.storage.from('recipe-images').getPublicUrl(path)
+  return data.publicUrl
+}
+
 function formatMinutesShort(mins: number | null, minLabel: string, hrLabel: string): string | null {
   if (!mins || mins <= 0) return null
   if (mins < 60) return `${mins} ${minLabel}`
@@ -94,6 +109,8 @@ export default function Home() {
   const [message, setMessage] = useState('')
   const [isError, setIsError] = useState(false)
   const [mode, setMode] = useState<'input' | 'preview' | 'edit'>('input')
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const resetAll = () => {
     setUrl(''); setTitle('')
@@ -102,6 +119,21 @@ export default function Home() {
     setPrepTimeMinutes(null); setCookTimeMinutes(null); setTotalTimeMinutes(null); setServings(null)
     setMessage(''); setIsError(false)
     setMode('input')
+  }
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploadingImage(true)
+    const url = await uploadImageFile(file, 'new-recipe')
+    if (url) {
+      setImage(url)
+    } else {
+      setMessage(t('addRecipePage.uploadFailedAlert'))
+      setIsError(true)
+    }
+    setUploadingImage(false)
   }
 
   const parseRecipe = async () => {
@@ -406,6 +438,28 @@ export default function Home() {
                 </button>
               </div>
             </div>
+
+            <div style={{ marginTop: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingImage}
+                style={{
+                  padding: '0.4rem 0.8rem', borderRadius: 8, border: '1.5px dashed #d8cfc0',
+                  background: 'transparent', color: COLORS.secondary, fontSize: '0.8rem', fontWeight: 600,
+                  cursor: uploadingImage ? 'default' : 'pointer', fontFamily: 'var(--font-manrope)'
+                }}
+              >
+                {uploadingImage ? t('addRecipePage.uploading') : `📷 ${t('addRecipePage.uploadPhoto')}`}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                style={{ display: 'none' }}
+              />
+            </div>
           </div>
         )}
 
@@ -418,6 +472,28 @@ export default function Home() {
                 <img src={image} alt="Recipe preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
             )}
+
+            <div>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingImage}
+                style={{
+                  padding: '0.4rem 0.8rem', borderRadius: 8, border: '1.5px dashed #d8cfc0',
+                  background: 'transparent', color: COLORS.secondary, fontSize: '0.8rem', fontWeight: 600,
+                  cursor: uploadingImage ? 'default' : 'pointer', fontFamily: 'var(--font-manrope)'
+                }}
+              >
+                {uploadingImage ? t('addRecipePage.uploading') : `📷 ${t('addRecipePage.uploadPhoto')}`}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                style={{ display: 'none' }}
+              />
+            </div>
 
             <input
               type="text" placeholder={t('addRecipePage.titlePlaceholder')} value={title}
