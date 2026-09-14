@@ -986,6 +986,9 @@ export default function RecipePage() {
                 {editIngredientRows.map((row) => (
                   <div key={row.id} style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem', alignItems: 'center' }}>
                     <input
+                      id={`qty-${row.id}`}
+                      name={`qty-${row.id}`}
+                      aria-label={t('recipeDetail.qtyColumn')}
                       type="number"
                       step="any"
                       placeholder={t('recipeDetail.qtyPlaceholder')}
@@ -994,6 +997,9 @@ export default function RecipePage() {
                       style={{ ...editInputStyle, width: 55, padding: '0.4rem 0.5rem' }}
                     />
                     <input
+                      id={`unit-${row.id}`}
+                      name={`unit-${row.id}`}
+                      aria-label={t('recipeDetail.unitColumn')}
                       type="text"
                       placeholder={t('recipeDetail.unitPlaceholder')}
                       value={row.unit}
@@ -1001,6 +1007,9 @@ export default function RecipePage() {
                       style={{ ...editInputStyle, width: 70, padding: '0.4rem 0.5rem' }}
                     />
                     <input
+                      id={`item-${row.id}`}
+                      name={`item-${row.id}`}
+                      aria-label={t('recipeDetail.ingredientColumn')}
                       type="text"
                       placeholder={t('recipeDetail.ingredientPlaceholder')}
                       value={row.item}
@@ -1130,7 +1139,7 @@ export default function RecipePage() {
               </p>
             )}
 
-            {calories === null && ingredients.length > 0 && (
+            {isOwner && calories === null && ingredients.length > 0 && (
               <div style={{ marginBottom: '1.25rem' }}>
                 <button
                   onClick={estimateCalories}
