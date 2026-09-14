@@ -20,6 +20,7 @@ export default function Nav() {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [langMenuOpen, setLangMenuOpen] = useState(false)
   const { user, signOut } = useAuth()
   const { locale, setLocale, t } = useTranslation()
 
@@ -57,10 +58,10 @@ export default function Nav() {
   ]
 
   const LANGUAGES: { code: Locale; label: string }[] = [
-  { code: 'en', label: 'English' },
-  { code: 'es', label: 'Español' },
-  { code: 'ro', label: 'Română' },
-  { code: 'ru', label: 'Русский' },
+    { code: 'en', label: 'English' },
+    { code: 'es', label: 'Español' },
+    { code: 'ro', label: 'Română' },
+    { code: 'ru', label: 'Русский' },
   ]
 
   const handleSignOut = async () => {
@@ -68,6 +69,11 @@ export default function Nav() {
     setMenuOpen(false)
     await signOut()
     // AuthGuard picks up the cleared session and redirects to /login.
+  }
+
+  const handleLangSelect = (code: Locale) => {
+    setLocale(code)
+    setLangMenuOpen(false)
   }
 
   return (
@@ -80,7 +86,9 @@ export default function Nav() {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        position: 'relative',
+        position: 'sticky',
+        top: 0,
+        zIndex: 40,
       }}
     >
       {/* Logo mark + wordmark */}
@@ -123,6 +131,49 @@ export default function Nav() {
           </svg>
         </Link>
 
+        {/* Language switcher — shows the current language code, doubling as a status indicator */}
+        <div style={{ position: 'relative' }}>
+          <button
+            aria-label={t('nav.language')}
+            onClick={() => setLangMenuOpen((v) => !v)}
+            style={{
+              color: COLORS.text, display: 'flex', alignItems: 'center', gap: '0.2rem',
+              cursor: 'pointer', background: 'none', border: 'none', padding: 0,
+              fontFamily: 'var(--font-manrope)', fontSize: '0.85rem', fontWeight: 700,
+            }}
+          >
+            {locale.toUpperCase()}
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginTop: 1 }}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+
+          {langMenuOpen && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 0.6rem)', right: 0,
+              background: '#fff', border: `1px solid ${COLORS.border}`, borderRadius: 12,
+              boxShadow: '0 8px 20px rgba(0,0,0,0.08)', padding: '0.6rem', zIndex: 50,
+              display: 'flex', flexWrap: 'wrap', gap: '0.4rem', maxWidth: 220,
+            }}>
+              {LANGUAGES.map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => handleLangSelect(lang.code)}
+                  style={{
+                    padding: '0.3rem 0.6rem', borderRadius: 999, cursor: 'pointer',
+                    fontFamily: 'var(--font-manrope)', fontSize: '0.75rem', fontWeight: 600,
+                    border: `1px solid ${locale === lang.code ? COLORS.secondary : COLORS.border}`,
+                    background: locale === lang.code ? COLORS.secondary : '#fff',
+                    color: locale === lang.code ? COLORS.neutral : COLORS.text,
+                  }}
+                >
+                  {lang.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <Link href="/add" className="oliva-add-recipe" style={{
           background: COLORS.secondary,
           color: COLORS.neutral,
@@ -157,26 +208,6 @@ export default function Nav() {
               background: '#fff', border: `1px solid ${COLORS.border}`, borderRadius: 12,
               boxShadow: '0 8px 20px rgba(0,0,0,0.08)', padding: '0.75rem', minWidth: 200, zIndex: 50,
             }}>
-              <div style={{
-                display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem',
-                paddingBottom: '0.6rem', borderBottom: `1px solid ${COLORS.border}`,
-              }}>
-                {LANGUAGES.map((lang) => (
-                  <button
-                    key={lang.code}
-                    onClick={() => setLocale(lang.code)}
-                    style={{
-                      padding: '0.3rem 0.6rem', borderRadius: 999, cursor: 'pointer',
-                      fontFamily: 'var(--font-manrope)', fontSize: '0.75rem', fontWeight: 600,
-                      border: `1px solid ${locale === lang.code ? COLORS.secondary : COLORS.border}`,
-                      background: locale === lang.code ? COLORS.secondary : '#fff',
-                      color: locale === lang.code ? COLORS.neutral : COLORS.text,
-                    }}
-                  >
-                    {lang.label}
-                  </button>
-                ))}
-              </div>
               {user?.email && (
                 <p style={{
                   fontSize: '0.75rem', color: '#8a8378', margin: '0 0 0.6rem',
@@ -255,25 +286,6 @@ export default function Nav() {
             </Link>
           ))}
           <div style={{ padding: '0.85rem 1.25rem' }}>
-            <div style={{
-              display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem',
-            }}>
-              {LANGUAGES.map((lang) => (
-                <button
-                  key={lang.code}
-                  onClick={() => setLocale(lang.code)}
-                  style={{
-                    padding: '0.35rem 0.7rem', borderRadius: 999, cursor: 'pointer',
-                    fontFamily: 'var(--font-manrope)', fontSize: '0.8rem', fontWeight: 600,
-                    border: `1px solid ${locale === lang.code ? COLORS.secondary : COLORS.border}`,
-                    background: locale === lang.code ? COLORS.secondary : '#fff',
-                    color: locale === lang.code ? COLORS.neutral : COLORS.text,
-                  }}
-                >
-                  {lang.label}
-                </button>
-              ))}
-            </div>
             {user?.email && (
               <p style={{ fontSize: '0.8rem', color: '#8a8378', margin: '0 0 0.6rem', fontFamily: 'var(--font-manrope)' }}>
                 Signed in as <span style={{ color: COLORS.text, fontWeight: 600 }}>{user.email}</span>
@@ -287,7 +299,7 @@ export default function Nav() {
                 cursor: 'pointer', fontFamily: 'var(--font-manrope)', textAlign: 'left'
               }}
             >
-              Log out
+              {t('nav.logOut')}
             </button>
           </div>
         </div>

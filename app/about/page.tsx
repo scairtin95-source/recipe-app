@@ -12,21 +12,9 @@ const COLORS = {
   border: '#EAE2D6',
 }
 
-// Stable English keys stored in the DB regardless of UI language, so the
-// `messages.subject` column stays consistent no matter what locale the
-// person submitted the form in. Display labels are translated separately.
-const SUBJECT_OPTIONS = [
-  { value: 'Recipe Suggestion', labelKey: 'aboutPage.subjectRecipeSuggestion' },
-  { value: 'Spotted an Error', labelKey: 'aboutPage.subjectSpottedError' },
-  { value: 'General Feedback', labelKey: 'aboutPage.subjectGeneralFeedback' },
-  { value: 'Just Saying Hello', labelKey: 'aboutPage.subjectSayingHello' },
-]
-
 export default function AboutPage() {
   const { t } = useTranslation()
-  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [subject, setSubject] = useState('Recipe Suggestion')
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState('')
@@ -46,7 +34,7 @@ export default function AboutPage() {
   }
 
   const sendMessage = async () => {
-    if (!name || !email || !message) {
+    if (!email || !message) {
       setStatus(t('aboutPage.fillFieldsError'))
       setIsError(true)
       return
@@ -54,14 +42,14 @@ export default function AboutPage() {
     setSending(true)
     const { error } = await supabase
       .from('messages')
-      .insert([{ name, email, subject, message }])
+      .insert([{ name: '', email, subject: '', message }])
     if (error) {
       setStatus(t('aboutPage.genericError'))
       setIsError(true)
     } else {
       setStatus(t('aboutPage.sentSuccess'))
       setIsError(false)
-      setName(''); setEmail(''); setSubject('Recipe Suggestion'); setMessage('')
+      setEmail(''); setMessage('')
     }
     setSending(false)
   }
@@ -102,16 +90,16 @@ export default function AboutPage() {
               background: '#e8dcc4', minHeight: 320
             }}>
               <img
-                src="https://images.unsplash.com/photo-1543353071-873f17a7a088?w=600&q=80"
-                alt="Olives and bread on a table"
+                src="https://images.unsplash.com/photo-1746635732995-ab5c6118d5a7?w=600&q=80"
+                alt="Family and friends gathered around a table sharing a meal"
                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             </div>
             <div style={{ borderRadius: 16, overflow: 'hidden', background: '#e8dcc4', minHeight: 150 }}>
               <img
-                src="https://images.unsplash.com/photo-1495521821757-a1efb6729352?w=600&q=80"
-                alt="Handwritten recipe cards"
+                src="https://images.unsplash.com/photo-1694830470410-2339a679c942?w=600&q=80"
+                alt="A warm wooden table set with plates and bowls"
                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
@@ -144,29 +132,13 @@ export default function AboutPage() {
         </div>
 
         <div style={{
-          maxWidth: 720, margin: '0 auto', background: '#fff', borderRadius: 18,
+          maxWidth: 520, margin: '0 auto', background: '#fff', borderRadius: 18,
           padding: '2rem', border: `1px solid ${COLORS.border}`
         }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-            <div>
-              <label style={labelStyle}>{t('aboutPage.nameLabel')}</label>
-              <input type="text" placeholder={t('aboutPage.namePlaceholder')} value={name}
-                onChange={(e) => setName(e.target.value)} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>{t('aboutPage.emailLabel')}</label>
-              <input type="email" placeholder="you@example.com" value={email}
-                onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
-            </div>
-          </div>
-
           <div style={{ marginBottom: '1rem' }}>
-            <label style={labelStyle}>{t('aboutPage.subjectLabel')}</label>
-            <select value={subject} onChange={(e) => setSubject(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-              {SUBJECT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
-              ))}
-            </select>
+            <label style={labelStyle}>{t('aboutPage.emailLabel')}</label>
+            <input type="email" placeholder="you@example.com" value={email}
+              onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
           </div>
 
           <div style={{ marginBottom: '1.25rem' }}>
