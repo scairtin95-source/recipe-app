@@ -1,6 +1,7 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../src/lib/supabase'
 import { useAuth } from '../../src/lib/AuthContext'
 import { useTranslation } from '../../src/lib/i18n/LocaleContext'
@@ -81,6 +82,7 @@ function formatMinutesShort(mins: number | null, minLabel: string, hrLabel: stri
 export default function Home() {
   const { user } = useAuth()
   const { t } = useTranslation()
+  const searchParams = useSearchParams()
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
 
@@ -111,6 +113,22 @@ export default function Home() {
   const [mode, setMode] = useState<'input' | 'preview' | 'edit'>('input')
   const [uploadingImage, setUploadingImage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // If we arrived here via the share-sheet (?url=...), pre-fill and
+  // auto-parse — the whole point of sharing is skipping manual entry.
+  useEffect(() => {
+    const sharedUrl = searchParams.get('url')
+    if (sharedUrl) {
+      setUrl(sharedUrl)
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    if (url && mode === 'input' && searchParams.get('url')) {
+      parseRecipe()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url])
 
   const resetAll = () => {
     setUrl(''); setTitle('')
