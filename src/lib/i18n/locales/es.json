@@ -154,6 +154,7 @@
   "add": "Añadir"
 },
 "homePage": {
+  "signInPrompt": "Inicia sesión para ver tu colección completa de recetas y añadir las tuyas.",
   "cravingTitle": "¿Qué se te antoja hoy?",
   "cravingSubtitle": "Dime qué se te antoja, o deja que te sugiera algo según lo que tengas en tu despensa.",
   "cravingPlaceholder": "p. ej., Un plato rápido de pasta con tomate…",

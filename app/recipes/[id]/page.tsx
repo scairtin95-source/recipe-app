@@ -85,20 +85,70 @@ function ingredientTextsForTranslation(entries: IngredientEntry[]): string[] {
   return entries.map((entry) => (isStructured(entry) ? (entry.item || entry.raw) : entry))
 }
 
-function convertToImperial(text: string): string {
-  return text
-    .replace(/(\d+(?:\.\d+)?)\s*ml/g, (_, n) => `${Math.round(parseFloat(n) * 0.034)} fl oz`)
-    .replace(/(\d+(?:\.\d+)?)\s*l\b/g, (_, n) => `${Math.round(parseFloat(n) * 4.227)} cups`)
-    .replace(/(\d+(?:\.\d+)?)\s*g\b/g, (_, n) => `${Math.round(parseFloat(n) * 0.035)} oz`)
-    .replace(/(\d+(?:\.\d+)?)\s*kg/g, (_, n) => `${Math.round(parseFloat(n) * 2.205)} lbs`)
-    .replace(/(\d+(?:\.\d+)?)\s*°C/g, (_, n) => `${Math.round(parseFloat(n) * 9/5 + 32)}°F`)
+// Matches "N unit" or a range "N-M unit" / "N–M unit" and converts every
+// number found (one or two) using the same factor, preserving the range
+// dash if present — so "2-3 tbsp" becomes "30-44 ml", not a broken mix.
+function convertUnitInText(
+  text: string,
+  pattern: RegExp,
+  factor: number,
+  toUnit: string,
+  round: (n: number) => number = Math.round
+): string {
+  return text.replace(pattern, (_match, n1: string, n2: string | undefined) => {
+    const first = round(parseFloat(n1) * factor)
+    if (n2 !== undefined) {
+      const second = round(parseFloat(n2) * factor)
+      return `${first}-${second} ${toUnit}`
+    }
+    return `${first} ${toUnit}`
+  })
 }
 
-const UNIT_CONVERSIONS: Record<string, { toUnit: string; factor: number }> = {
+const RANGE = (unit: string) => new RegExp(`(\\d+(?:\\.\\d+)?)(?:\\s*[-–]\\s*(\\d+(?:\\.\\d+)?))?\\s*${unit}`, 'gi')
+
+function convertToImperial(text: string): string {
+  let result = text
+  result = convertUnitInText(result, RANGE('ml'), 0.034, 'fl oz')
+  result = convertUnitInText(result, RANGE('l\\b'), 4.227, 'cups')
+  result = convertUnitInText(result, RANGE('g\\b'), 0.035, 'oz')
+  result = convertUnitInText(result, RANGE('kg'), 2.205, 'lbs')
+  result = result.replace(/(\d+(?:\.\d+)?)\s*°C/g, (_, n) => `${Math.round(parseFloat(n) * 9/5 + 32)}°F`)
+  return result
+}
+
+function convertToMetric(text: string): string {
+  let result = text
+  result = convertUnitInText(result, RANGE('fl\\s*oz'), 29.574, 'ml')
+  result = convertUnitInText(result, RANGE('cups?'), 236.588, 'ml')
+  result = convertUnitInText(result, RANGE('(?:tbsp|tablespoons?)'), 14.787, 'ml')
+  result = convertUnitInText(result, RANGE('(?:tsp|teaspoons?)'), 4.929, 'ml')
+  result = convertUnitInText(result, RANGE('lbs?\\b'), 453.592, 'g')
+  result = convertUnitInText(result, RANGE('oz\\b'), 28.35, 'g')
+  result = result.replace(/(\d+(?:\.\d+)?)\s*°F/g, (_, n) => `${Math.round((parseFloat(n) - 32) * 5/9)}°C`)
+  return result
+}
+
+// Metric units, converted → imperial when the toggle is set to Imperial.
+const TO_IMPERIAL: Record<string, { toUnit: string; factor: number }> = {
   ml: { toUnit: 'fl oz', factor: 0.034 },
   l: { toUnit: 'cups', factor: 4.227 },
   g: { toUnit: 'oz', factor: 0.035 },
   kg: { toUnit: 'lbs', factor: 2.205 },
+}
+
+// Imperial units, converted → metric when the toggle is set to Metric.
+const TO_METRIC: Record<string, { toUnit: string; factor: number }> = {
+  'fl oz': { toUnit: 'ml', factor: 29.574 },
+  cup: { toUnit: 'ml', factor: 236.588 },
+  cups: { toUnit: 'ml', factor: 236.588 },
+  tbsp: { toUnit: 'ml', factor: 14.787 },
+  tablespoon: { toUnit: 'ml', factor: 14.787 },
+  tsp: { toUnit: 'ml', factor: 4.929 },
+  teaspoon: { toUnit: 'ml', factor: 4.929 },
+  oz: { toUnit: 'g', factor: 28.35 },
+  lb: { toUnit: 'g', factor: 453.592 },
+  lbs: { toUnit: 'g', factor: 453.592 },
 }
 
 function convertStructuredQuantity(
@@ -106,15 +156,23 @@ function convertStructuredQuantity(
   unit: string | null,
   imperial: boolean
 ): { quantity: number | null; unit: string | null } {
-  if (!imperial || quantity === null || !unit) return { quantity, unit }
+  if (quantity === null || !unit) return { quantity, unit }
   const key = unit.toLowerCase().replace(/\.$/, '')
-  if (key === '°c' || key === 'c' || key === 'celsius') {
-    return { quantity: Math.round(quantity * 9 / 5 + 32), unit: '°F' }
+
+  if (imperial) {
+    if (key === '°c' || key === 'c' || key === 'celsius') {
+      return { quantity: Math.round(quantity * 9 / 5 + 32), unit: '°F' }
+    }
+    const conv = TO_IMPERIAL[key]
+    if (conv) return { quantity: Math.round(quantity * conv.factor * 100) / 100, unit: conv.toUnit }
+  } else {
+    if (key === '°f' || key === 'f' || key === 'fahrenheit') {
+      return { quantity: Math.round((quantity - 32) * 5 / 9), unit: '°C' }
+    }
+    const conv = TO_METRIC[key]
+    if (conv) return { quantity: Math.round(quantity * conv.factor * 100) / 100, unit: conv.toUnit }
   }
-  const conv = UNIT_CONVERSIONS[key]
-  if (conv) {
-    return { quantity: Math.round(quantity * conv.factor * 100) / 100, unit: conv.toUnit }
-  }
+
   return { quantity, unit }
 }
 
@@ -153,10 +211,10 @@ function formatQuantityForDisplay(qty: number, unit: string | null): string {
 
 function formatIngredientLine(entry: IngredientEntry, imperial: boolean, scale: number): string {
   if (!isStructured(entry)) {
-    return imperial ? convertToImperial(entry) : entry
+    return imperial ? convertToImperial(entry) : convertToMetric(entry)
   }
   if (entry.quantity === null) {
-    return imperial ? convertToImperial(entry.raw || entry.item) : (entry.raw || entry.item)
+    return imperial ? convertToImperial(entry.raw || entry.item) : convertToMetric(entry.raw || entry.item)
   }
   const scaledQuantity = entry.quantity * scale
   if (!entry.unit) {
@@ -518,7 +576,11 @@ export default function RecipePage() {
   }
 
   const saveCopy = async () => {
-    if (!recipe || !user) return
+    if (!recipe) return
+    if (!user) {
+      router.push(`/login?redirect=/recipes/${recipe.id}`)
+      return
+    }
     setSavingCopy(true)
     const { error } = await supabase.from('recipes').insert([{
       title: recipe.title,
@@ -1175,45 +1237,47 @@ export default function RecipePage() {
               </a>
             )}
 
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem',
-              background: '#fff', border: '1px solid #eee3d8', borderRadius: 12, padding: '0.75rem 1rem'
-            }}>
-              <span style={{ fontSize: '0.85rem', color: COLORS.secondary, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                {t('recipeDetail.addToCollectionLabel')}
-              </span>
-              <select
-                value={selectedCollection}
-                onChange={(e) => setSelectedCollection(e.target.value)}
-                style={{
-                  flex: 1, padding: '0.4rem 0.6rem', borderRadius: 8,
-                  border: '1.5px solid #e5ddd3', fontFamily: 'var(--font-manrope)',
-                  fontSize: '0.85rem', color: '#2c2c2c', background: '#fff'
-                }}
-              >
-                <option value="">{t('recipeDetail.selectCollectionPlaceholder')}</option>
-                {collections.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-              <button
-                onClick={addToCollection}
-                disabled={!selectedCollection}
-                style={{
-                  padding: '0.4rem 1rem', borderRadius: 8, border: 'none',
-                  background: COLORS.secondary, color: '#fff', fontSize: '0.85rem',
-                  fontWeight: 600, cursor: selectedCollection ? 'pointer' : 'not-allowed',
-                  opacity: selectedCollection ? 1 : 0.5, fontFamily: 'var(--font-manrope)'
-                }}
-              >
-                {t('recipeDetail.add')}
-              </button>
-              {addStatus && (
-                <span style={{ fontSize: '0.8rem', color: COLORS.secondary, whiteSpace: 'nowrap' }}>
-                  {addStatus}
+            {user && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem',
+                background: '#fff', border: '1px solid #eee3d8', borderRadius: 12, padding: '0.75rem 1rem'
+              }}>
+                <span style={{ fontSize: '0.85rem', color: COLORS.secondary, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  {t('recipeDetail.addToCollectionLabel')}
                 </span>
-              )}
-            </div>
+                <select
+                  value={selectedCollection}
+                  onChange={(e) => setSelectedCollection(e.target.value)}
+                  style={{
+                    flex: 1, padding: '0.4rem 0.6rem', borderRadius: 8,
+                    border: '1.5px solid #e5ddd3', fontFamily: 'var(--font-manrope)',
+                    fontSize: '0.85rem', color: '#2c2c2c', background: '#fff'
+                  }}
+                >
+                  <option value="">{t('recipeDetail.selectCollectionPlaceholder')}</option>
+                  {collections.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={addToCollection}
+                  disabled={!selectedCollection}
+                  style={{
+                    padding: '0.4rem 1rem', borderRadius: 8, border: 'none',
+                    background: COLORS.secondary, color: '#fff', fontSize: '0.85rem',
+                    fontWeight: 600, cursor: selectedCollection ? 'pointer' : 'not-allowed',
+                    opacity: selectedCollection ? 1 : 0.5, fontFamily: 'var(--font-manrope)'
+                  }}
+                >
+                  {t('recipeDetail.add')}
+                </button>
+                {addStatus && (
+                  <span style={{ fontSize: '0.8rem', color: COLORS.secondary, whiteSpace: 'nowrap' }}>
+                    {addStatus}
+                  </span>
+                )}
+              </div>
+            )}
 
             <button
               onClick={() => setCookingMode(true)}
@@ -1339,7 +1403,7 @@ export default function RecipePage() {
                 <ol style={{ margin: 0, padding: '0 0 0 1.5rem', listStyleType: 'decimal' }}>
                   {steps.length > 0 ? steps.map((step, i) => (
                     <li key={i} style={{ fontSize: '0.9rem', color: '#3c3c3c', lineHeight: 1.8, marginBottom: '0.75rem' }}>
-                      {!showingTranslation && imperial ? convertToImperial(step) : step}
+                      {!showingTranslation ? (imperial ? convertToImperial(step) : convertToMetric(step)) : step}
                     </li>
                   )) : <li style={{ color: '#8a8378', fontSize: '0.9rem' }}>{t('recipeDetail.noStepsSaved')}</li>}
                 </ol>

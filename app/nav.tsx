@@ -89,7 +89,6 @@ export default function Nav() {
     { href: '/', label: t('nav.home') },
     { href: '/recipes', label: t('nav.recipes') },
     { href: '/table', label: t('nav.table') },
-    { href: '/pantry', label: t('nav.pantry') },
     { href: '/about', label: t('nav.about') },
   ]
 
@@ -218,8 +217,10 @@ export default function Nav() {
            {t('nav.addRecipe')}
         </Link>
 
-        {/* Profile — desktop only, opens a small dropdown with nickname + sign out */}
+        {/* Profile — desktop only, opens a small dropdown with nickname + sign out. Logged-out visitors get a plain Sign in link instead. */}
         <div className="oliva-desktop-links" style={{ position: 'relative' }}>
+          {user ? (
+          <>
           <button
             aria-label="Profile"
             onClick={() => setProfileOpen((v) => !v)}
@@ -318,6 +319,18 @@ export default function Nav() {
               </button>
             </div>
           )}
+          </>
+          ) : (
+            <Link
+              href="/login"
+              style={{
+                color: COLORS.text, fontSize: '0.9rem', fontWeight: 600,
+                fontFamily: 'var(--font-manrope)', textDecoration: 'none',
+              }}
+            >
+              {t('loginPage.signIn')}
+            </Link>
+          )}
         </div>
 
         {/* Hamburger — visible on mobile only */}
@@ -375,81 +388,97 @@ export default function Nav() {
             </Link>
           ))}
           <div style={{ padding: '0.85rem 1.25rem' }}>
-            {user?.email && (
-              <p style={{ fontSize: '0.8rem', color: '#8a8378', margin: '0 0 0.6rem', fontFamily: 'var(--font-manrope)' }}>
-                Signed in as <span style={{ color: COLORS.text, fontWeight: 600 }}>{user.email}</span>
-              </p>
-            )}
+            {user ? (
+              <>
+                {user?.email && (
+                  <p style={{ fontSize: '0.8rem', color: '#8a8378', margin: '0 0 0.6rem', fontFamily: 'var(--font-manrope)' }}>
+                    Signed in as <span style={{ color: COLORS.text, fontWeight: 600 }}>{user.email}</span>
+                  </p>
+                )}
 
-            {/* Nickname editor (mobile) */}
-            <div style={{ marginBottom: '0.75rem' }}>
-              {editingNickname ? (
-                <div style={{ display: 'flex', gap: '0.4rem' }}>
-                  <input
-                    value={nicknameInput}
-                    onChange={(e) => setNicknameInput(e.target.value)}
-                    style={{
-                      flex: 1, minWidth: 0, padding: '0.5rem 0.6rem', borderRadius: 8,
-                      border: `1.5px solid ${COLORS.border}`, fontFamily: 'var(--font-manrope)',
-                      fontSize: '0.9rem', color: COLORS.text, outline: 'none',
-                    }}
-                  />
-                  <button
-                    onClick={saveNickname}
-                    disabled={savingNickname || !nicknameInput.trim()}
-                    style={{
-                      padding: '0.5rem 0.8rem', borderRadius: 8, border: 'none',
-                      background: COLORS.secondary, color: COLORS.neutral, fontSize: '0.85rem',
-                      fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-manrope)',
-                      opacity: savingNickname || !nicknameInput.trim() ? 0.6 : 1,
-                    }}
-                  >
-                    {savingNickname ? '…' : t('nav.save') || 'Save'}
-                  </button>
+                {/* Nickname editor (mobile) */}
+                <div style={{ marginBottom: '0.75rem' }}>
+                  {editingNickname ? (
+                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                      <input
+                        value={nicknameInput}
+                        onChange={(e) => setNicknameInput(e.target.value)}
+                        style={{
+                          flex: 1, minWidth: 0, padding: '0.5rem 0.6rem', borderRadius: 8,
+                          border: `1.5px solid ${COLORS.border}`, fontFamily: 'var(--font-manrope)',
+                          fontSize: '0.9rem', color: COLORS.text, outline: 'none',
+                        }}
+                      />
+                      <button
+                        onClick={saveNickname}
+                        disabled={savingNickname || !nicknameInput.trim()}
+                        style={{
+                          padding: '0.5rem 0.8rem', borderRadius: 8, border: 'none',
+                          background: COLORS.secondary, color: COLORS.neutral, fontSize: '0.85rem',
+                          fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-manrope)',
+                          opacity: savingNickname || !nicknameInput.trim() ? 0.6 : 1,
+                        }}
+                      >
+                        {savingNickname ? '…' : t('nav.save') || 'Save'}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setNicknameInput(displayName); setEditingNickname(true) }}
+                      style={{
+                        width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        background: 'none', border: `1.5px solid ${COLORS.border}`, borderRadius: 8,
+                        padding: '0.5rem 0.75rem', cursor: 'pointer', fontFamily: 'var(--font-manrope)',
+                      }}
+                    >
+                      <span style={{ fontSize: '0.9rem', color: COLORS.text, fontWeight: 600 }}>
+                        {displayName || '—'}
+                      </span>
+                      <span style={{ fontSize: '0.8rem', color: COLORS.secondary, textDecoration: 'underline' }}>
+                        {t('nav.editNickname') || 'Edit'}
+                      </span>
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <button
-                  onClick={() => { setNicknameInput(displayName); setEditingNickname(true) }}
+
+                <Link
+                  href="/group-settings"
+                  onClick={() => setMenuOpen(false)}
                   style={{
-                    width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    background: 'none', border: `1.5px solid ${COLORS.border}`, borderRadius: 8,
-                    padding: '0.5rem 0.75rem', cursor: 'pointer', fontFamily: 'var(--font-manrope)',
+                    display: 'block', width: '100%', padding: '0.6rem 0.9rem', borderRadius: 8,
+                    border: `1.5px solid ${COLORS.border}`, background: '#fff',
+                    color: COLORS.text, fontSize: '0.9rem', fontWeight: 600,
+                    fontFamily: 'var(--font-manrope)', textAlign: 'left', textDecoration: 'none',
+                    marginBottom: '0.6rem',
                   }}
                 >
-                  <span style={{ fontSize: '0.9rem', color: COLORS.text, fontWeight: 600 }}>
-                    {displayName || '—'}
-                  </span>
-                  <span style={{ fontSize: '0.8rem', color: COLORS.secondary, textDecoration: 'underline' }}>
-                    {t('nav.editNickname') || 'Edit'}
-                  </span>
+                  Group Settings
+                </Link>
+
+                <button
+                  onClick={handleSignOut}
+                  style={{
+                    width: '100%', padding: '0.6rem 0.9rem', borderRadius: 8, border: `1.5px solid ${COLORS.border}`,
+                    background: '#fff', color: COLORS.primary, fontSize: '0.9rem', fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'var(--font-manrope)', textAlign: 'left'
+                  }}
+                >
+                  {t('nav.logOut')}
                 </button>
-              )}
-            </div>
-
-            <Link
-              href="/group-settings"
-              onClick={() => setMenuOpen(false)}
-              style={{
-                display: 'block', width: '100%', padding: '0.6rem 0.9rem', borderRadius: 8,
-                border: `1.5px solid ${COLORS.border}`, background: '#fff',
-                color: COLORS.text, fontSize: '0.9rem', fontWeight: 600,
-                fontFamily: 'var(--font-manrope)', textAlign: 'left', textDecoration: 'none',
-                marginBottom: '0.6rem',
-              }}
-            >
-              Group Settings
-            </Link>
-
-            <button
-              onClick={handleSignOut}
-              style={{
-                width: '100%', padding: '0.6rem 0.9rem', borderRadius: 8, border: `1.5px solid ${COLORS.border}`,
-                background: '#fff', color: COLORS.primary, fontSize: '0.9rem', fontWeight: 600,
-                cursor: 'pointer', fontFamily: 'var(--font-manrope)', textAlign: 'left'
-              }}
-            >
-              {t('nav.logOut')}
-            </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setMenuOpen(false)}
+                style={{
+                  display: 'block', width: '100%', padding: '0.6rem 0.9rem', borderRadius: 8,
+                  background: COLORS.primary, color: '#fff', fontSize: '0.9rem', fontWeight: 600,
+                  fontFamily: 'var(--font-manrope)', textAlign: 'center', textDecoration: 'none',
+                }}
+              >
+                {t('loginPage.signIn')}
+              </Link>
+            )}
           </div>
         </div>
       )}

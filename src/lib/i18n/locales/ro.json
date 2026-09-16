@@ -154,6 +154,7 @@
   "add": "Adaugă"
 },
 "homePage": {
+  "signInPrompt": "Conectează-te pentru a-ți vedea toată colecția de rețete și a adăuga rețete proprii.",
   "cravingTitle": "Ce ne poftim azi?",
   "cravingSubtitle": "Spune-mi ce ți-ai dori, sau lasă-mă să-ți sugerez ceva pe baza a ce ai în cămară.",
   "cravingPlaceholder": "ex., Un fel rapid de paste cu roșii…",

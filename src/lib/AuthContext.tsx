@@ -78,11 +78,10 @@ export function useAuth() {
 
 // Only /login is reachable while logged out. Add more paths here later
 // (e.g. a public shared-recipe view) if Oliva ever needs one.
-const PUBLIC_PATHS = ['/login']
+const PUBLIC_PATHS = ['/login', '/']
 function isPublicPath(pathname: string) {
-  return PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/join/')
+  return PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/join/') || pathname.startsWith('/recipes/')
 }
-
 // Reachable even without a group — the onboarding flow itself, and the
 // invite-join page (which is how a user gets their first group).
 const GROUP_EXEMPT_PATHS = ['/onboarding']
