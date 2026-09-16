@@ -31,7 +31,9 @@ self.addEventListener('fetch', (event) => {
 
   if (event.request.method !== 'GET' || !isCacheable(url)) {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
+      fetch(event.request).catch(() =>
+        caches.match(event.request).then((cached) => cached || new Response('', { status: 504 }))
+      )
     );
     return;
   }
@@ -45,6 +47,8 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(() =>
+        caches.match(event.request).then((cached) => cached || new Response('', { status: 504 }))
+      )
   );
 });

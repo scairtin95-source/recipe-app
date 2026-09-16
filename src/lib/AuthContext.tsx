@@ -24,14 +24,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [groupIds, setGroupIds] = useState<string[]>([])
 
   const checkGroups = useCallback(async (userId: string) => {
-    const { data, error } = await supabase
-      .from('group_members')
-      .select('group_id')
-      .eq('user_id', userId)
+    // A genuinely offline connection (no network at all, as opposed to a
+    // fast-failing DevTools simulation) can leave the Supabase client's
+    // fetch pending indefinitely with no built-in timeout — which would
+    // otherwise block rendering forever, since hasGroup starts as null.
+    // Racing against a short timeout guarantees we always move on.
+    const timeout = new Promise<{ data: null; error: Error }>((resolve) =>
+      setTimeout(() => resolve({ data: null, error: new Error('timeout') }), 5000)
+    )
+    const { data, error } = await Promise.race([
+      supabase.from('group_members').select('group_id').eq('user_id', userId),
+      timeout,
+    ])
     if (error) {
-      // Fetch failed (e.g. no network) — keep whatever group state we
-      // already knew rather than concluding "no group," which would
-      // incorrectly bounce an offline user to /onboarding.
+      // Fetch failed or timed out — keep whatever group state we already
+      // knew rather than concluding "no group," which would incorrectly
+      // bounce an offline user to /onboarding.
       return
     }
     setGroupIds(data?.map((r) => r.group_id) ?? [])
@@ -43,7 +51,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [session?.user?.id, checkGroups])
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const sessionTimeout = new Promise<{ data: { session: null } }>((resolve) =>
+      setTimeout(() => resolve({ data: { session: null } }), 5000)
+    )
+    Promise.race([supabase.auth.getSession(), sessionTimeout]).then(({ data: { session } }) => {
       setSession(session)
       setLoading(false)
       if (session?.user?.id) checkGroups(session.user.id)
