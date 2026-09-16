@@ -24,10 +24,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [groupIds, setGroupIds] = useState<string[]>([])
 
   const checkGroups = useCallback(async (userId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('group_members')
       .select('group_id')
       .eq('user_id', userId)
+    if (error) {
+      // Fetch failed (e.g. no network) — keep whatever group state we
+      // already knew rather than concluding "no group," which would
+      // incorrectly bounce an offline user to /onboarding.
+      return
+    }
     setGroupIds(data?.map((r) => r.group_id) ?? [])
     setHasGroup((data?.length ?? 0) > 0)
   }, [])
