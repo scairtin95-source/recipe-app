@@ -5,6 +5,8 @@
     "pantry": "Pantry",
     "addRecipe": "Add Recipe",
     "logOut": "Log out",
+    "save": "Save",
+    "editNickname": "Edit",
     "language": "Language",
     "home": "Home",
     "about": "About"
@@ -265,7 +267,14 @@
   "password": "Password",
   "incorrectCredentials": "Incorrect email or password.",
   "signingIn": "Signing in…",
-  "signIn": "Sign in"
+  "signIn": "Sign in",
+  "createAccountTitle": "Create your account",
+  "joinOliva": "Join Oliva",
+  "createAccount": "Create account",
+  "dontHaveAccount": "Don't have an account?",
+  "signUp": "Sign up",
+  "alreadyHaveAccount": "Already have an account?",
+  "checkEmailConfirm": "Check your email to confirm your account, then sign in."
 },
 "cookingMode": {
   "stepLabel": "Step",
@@ -274,5 +283,32 @@
   "previous": "Previous",
   "next": "Next",
   "done": "Done"
+},
+"onboardingPage": {
+  "welcomeTitle": "Welcome to Oliva",
+  "subtitle": "You're not part of a group yet. Create one, or join one with an invite.",
+  "createGroup": "Create a group",
+  "joinWithInvite": "Join with an invite",
+  "groupNameLabel": "Group name",
+  "groupNamePlaceholder": "e.g. The Olive Table",
+  "creating": "Creating…",
+  "createGroupButton": "Create group",
+  "inviteLabel": "Invite link or code",
+  "invitePlaceholder": "Paste an invite link or code",
+  "continueButton": "Continue",
+  "invalidInvite": "That doesn't look like a valid invite link or code."
+},
+"joinPage": {
+  "invitedTitle": "You've been invited",
+  "invitedSubtitle": "Join this group to see and share recipes together.",
+  "joinGroup": "Join group",
+  "joining": "Joining…",
+  "welcomePrefix": "Welcome",
+  "goToOliva": "Go to Oliva",
+  "couldntJoin": "Couldn't join",
+  "errorNotFound": "This invite link is invalid.",
+  "errorExpired": "This invite link has expired.",
+  "errorExhausted": "This invite link has already been used the maximum number of times.",
+  "errorGeneric": "Something went wrong. Please try again."
 }
 }

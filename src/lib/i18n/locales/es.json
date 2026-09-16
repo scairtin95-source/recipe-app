@@ -5,6 +5,8 @@
     "pantry": "Despensa",
     "addRecipe": "Añadir receta",
     "logOut": "Cerrar sesión",
+    "save": "Guardar",
+    "editNickname": "Editar",
     "language": "Idioma",
     "home": "Inicio",
     "about": "Acerca de"
@@ -264,7 +266,14 @@
   "password": "Contraseña",
   "incorrectCredentials": "Correo electrónico o contraseña incorrectos.",
   "signingIn": "Iniciando sesión…",
-  "signIn": "Iniciar sesión"
+  "signIn": "Iniciar sesión",
+  "createAccountTitle": "Crea tu cuenta",
+  "joinOliva": "Únete a Oliva",
+  "createAccount": "Crear cuenta",
+  "dontHaveAccount": "¿No tienes una cuenta?",
+  "signUp": "Regístrate",
+  "alreadyHaveAccount": "¿Ya tienes una cuenta?",
+  "checkEmailConfirm": "Revisa tu correo para confirmar tu cuenta y luego inicia sesión."
 },
 "cookingMode": {
   "stepLabel": "Paso",
@@ -273,5 +282,32 @@
   "previous": "Anterior",
   "next": "Siguiente",
   "done": "Listo"
+},
+"onboardingPage": {
+  "welcomeTitle": "Bienvenido a Oliva",
+  "subtitle": "Aún no formas parte de un grupo. Crea uno, o únete a uno con una invitación.",
+  "createGroup": "Crear un grupo",
+  "joinWithInvite": "Unirse con una invitación",
+  "groupNameLabel": "Nombre del grupo",
+  "groupNamePlaceholder": "p. ej. La Mesa de Oliva",
+  "creating": "Creando…",
+  "createGroupButton": "Crear grupo",
+  "inviteLabel": "Enlace o código de invitación",
+  "invitePlaceholder": "Pega un enlace o código de invitación",
+  "continueButton": "Continuar",
+  "invalidInvite": "Eso no parece un enlace o código de invitación válido."
+},
+"joinPage": {
+  "invitedTitle": "Has sido invitado",
+  "invitedSubtitle": "Únete a este grupo para ver y compartir recetas juntos.",
+  "joinGroup": "Unirse al grupo",
+  "joining": "Uniéndose…",
+  "welcomePrefix": "Bienvenido a",
+  "goToOliva": "Ir a Oliva",
+  "couldntJoin": "No se pudo unir",
+  "errorNotFound": "Este enlace de invitación no es válido.",
+  "errorExpired": "Este enlace de invitación ha expirado.",
+  "errorExhausted": "Este enlace de invitación ya se ha usado el número máximo de veces.",
+  "errorGeneric": "Algo salió mal. Inténtalo de nuevo."
 }
 }

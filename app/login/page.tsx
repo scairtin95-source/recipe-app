@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '../../src/lib/supabase'
 import { useTranslation } from '../../src/lib/i18n/LocaleContext'
 
@@ -14,25 +14,46 @@ const COLORS = {
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { t } = useTranslation()
+
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  const redirectTarget = searchParams.get('redirect') || '/'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setInfo(null)
     setLoading(true)
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-
-    setLoading(false)
-    if (error) {
-      setError(t('loginPage.incorrectCredentials'))
-      return
+    if (mode === 'signin') {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      setLoading(false)
+      if (error) {
+        setError(t('loginPage.incorrectCredentials'))
+        return
+      }
+      router.replace(redirectTarget)
+    } else {
+      const { data, error } = await supabase.auth.signUp({ email, password })
+      setLoading(false)
+      if (error) {
+        setError(error.message)
+        return
+      }
+      if (data.session) {
+        router.replace(redirectTarget)
+      } else {
+        setInfo(t('loginPage.checkEmailConfirm'))
+        setMode('signin')
+      }
     }
-    router.replace('/')
   }
 
   return (
@@ -48,10 +69,10 @@ export default function LoginPage() {
           fontFamily: 'var(--font-newsreader)', fontSize: '1.6rem', fontWeight: 600,
           color: COLORS.text, margin: '0 0 0.4rem'
         }}>
-          {t('loginPage.welcomeBack')}
+          {mode === 'signin' ? t('loginPage.welcomeBack') : t('loginPage.createAccountTitle')}
         </h1>
         <p style={{ fontSize: '0.85rem', color: '#8a8378', margin: '0 0 1.5rem' }}>
-          {t('loginPage.signInSubtitle')}
+          {mode === 'signin' ? t('loginPage.signInSubtitle') : t('loginPage.joinOliva')}
         </p>
 
         <label style={{
@@ -84,6 +105,7 @@ export default function LoginPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
+          minLength={mode === 'signup' ? 6 : undefined}
           style={{
             width: '100%', padding: '0.6rem 0.8rem', borderRadius: 8, border: '1.5px solid #e5ddd3',
             fontSize: '0.9rem', marginBottom: '1.25rem', boxSizing: 'border-box', fontFamily: 'var(--font-manrope)',
@@ -93,6 +115,9 @@ export default function LoginPage() {
 
         {error && (
           <p style={{ fontSize: '0.8rem', color: COLORS.primary, margin: '0 0 1rem' }}>{error}</p>
+        )}
+        {info && (
+          <p style={{ fontSize: '0.8rem', color: COLORS.secondary, margin: '0 0 1rem' }}>{info}</p>
         )}
 
         <button
@@ -105,8 +130,36 @@ export default function LoginPage() {
             opacity: loading ? 0.6 : 1
           }}
         >
-          {loading ? t('loginPage.signingIn') : t('loginPage.signIn')}
+          {loading
+            ? t('loginPage.signingIn')
+            : mode === 'signin' ? t('loginPage.signIn') : t('loginPage.createAccount')}
         </button>
+
+        <p style={{ fontSize: '0.8rem', color: '#8a8378', margin: '1.1rem 0 0', textAlign: 'center' }}>
+          {mode === 'signin' ? (
+            <>
+              {t('loginPage.dontHaveAccount')}{' '}
+              <button
+                type="button"
+                onClick={() => { setMode('signup'); setError(null); setInfo(null) }}
+                style={{ background: 'none', border: 'none', padding: 0, color: COLORS.secondary, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--font-manrope)' }}
+              >
+                {t('loginPage.signUp')}
+              </button>
+            </>
+          ) : (
+            <>
+              {t('loginPage.alreadyHaveAccount')}{' '}
+              <button
+                type="button"
+                onClick={() => { setMode('signin'); setError(null); setInfo(null) }}
+                style={{ background: 'none', border: 'none', padding: 0, color: COLORS.secondary, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--font-manrope)' }}
+              >
+                {t('loginPage.signIn')}
+              </button>
+            </>
+          )}
+        </p>
       </form>
     </div>
   )

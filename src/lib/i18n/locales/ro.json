@@ -5,6 +5,8 @@
     "pantry": "Cămară",
     "addRecipe": "Adaugă rețetă",
     "logOut": "Deconectare",
+    "save": "Salvează",
+    "editNickname": "Editează",
     "language": "Limbă",
     "home": "Acasă",
     "about": "Despre"
@@ -265,7 +267,14 @@
   "password": "Parolă",
   "incorrectCredentials": "Email sau parolă incorecte.",
   "signingIn": "Se conectează…",
-  "signIn": "Conectează-te"
+  "signIn": "Conectează-te",
+  "createAccountTitle": "Creează-ți contul",
+  "joinOliva": "Alătură-te la Oliva",
+  "createAccount": "Creează cont",
+  "dontHaveAccount": "Nu ai un cont?",
+  "signUp": "Înregistrează-te",
+  "alreadyHaveAccount": "Ai deja un cont?",
+  "checkEmailConfirm": "Verifică-ți emailul pentru a-ți confirma contul, apoi conectează-te."
 },
 "cookingMode": {
   "stepLabel": "Pasul",
@@ -274,5 +283,32 @@
   "previous": "Anterior",
   "next": "Următorul",
   "done": "Gata"
+},
+"onboardingPage": {
+  "welcomeTitle": "Bine ai venit la Oliva",
+  "subtitle": "Încă nu faci parte dintr-un grup. Creează unul, sau alătură-te unuia cu o invitație.",
+  "createGroup": "Creează un grup",
+  "joinWithInvite": "Alătură-te cu o invitație",
+  "groupNameLabel": "Numele grupului",
+  "groupNamePlaceholder": "ex. Masa Oliva",
+  "creating": "Se creează…",
+  "createGroupButton": "Creează grupul",
+  "inviteLabel": "Link sau cod de invitație",
+  "invitePlaceholder": "Lipește un link sau cod de invitație",
+  "continueButton": "Continuă",
+  "invalidInvite": "Acesta nu pare un link sau cod de invitație valid."
+},
+"joinPage": {
+  "invitedTitle": "Ai fost invitat",
+  "invitedSubtitle": "Alătură-te acestui grup pentru a vedea și distribui rețete împreună.",
+  "joinGroup": "Alătură-te grupului",
+  "joining": "Se alătură…",
+  "welcomePrefix": "Bine ai venit la",
+  "goToOliva": "Mergi la Oliva",
+  "couldntJoin": "Nu s-a putut alătura",
+  "errorNotFound": "Acest link de invitație nu este valid.",
+  "errorExpired": "Acest link de invitație a expirat.",
+  "errorExhausted": "Acest link de invitație a fost deja folosit de numărul maxim de ori.",
+  "errorGeneric": "Ceva nu a mers bine. Te rugăm să încerci din nou."
 }
 }

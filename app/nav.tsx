@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
+import { supabase } from '../src/lib/supabase'
 import { useAuth } from '../src/lib/AuthContext'
 import { useTranslation, Locale } from '../src/lib/i18n/LocaleContext'
 
@@ -23,6 +24,41 @@ export default function Nav() {
   const [langMenuOpen, setLangMenuOpen] = useState(false)
   const { user, signOut } = useAuth()
   const { locale, setLocale, t } = useTranslation()
+
+  // Display name (nickname) editing state
+  const [displayName, setDisplayName] = useState('')
+  const [nicknameInput, setNicknameInput] = useState('')
+  const [editingNickname, setEditingNickname] = useState(false)
+  const [savingNickname, setSavingNickname] = useState(false)
+
+  useEffect(() => {
+    if (!user?.id) return
+    supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('user_id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data?.display_name) {
+          setDisplayName(data.display_name)
+          setNicknameInput(data.display_name)
+        }
+      })
+  }, [user?.id])
+
+  async function saveNickname() {
+    if (!user?.id || !nicknameInput.trim()) return
+    setSavingNickname(true)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ display_name: nicknameInput.trim() })
+      .eq('user_id', user.id)
+    setSavingNickname(false)
+    if (!error) {
+      setDisplayName(nicknameInput.trim())
+      setEditingNickname(false)
+    }
+  }
 
   // The login page has its own centered layout — no header needed there.
   if (pathname === '/login') return null
@@ -182,7 +218,7 @@ export default function Nav() {
            {t('nav.addRecipe')}
         </Link>
 
-        {/* Profile — desktop only, opens a small dropdown with sign out */}
+        {/* Profile — desktop only, opens a small dropdown with nickname + sign out */}
         <div className="oliva-desktop-links" style={{ position: 'relative' }}>
           <button
             aria-label="Profile"
@@ -200,7 +236,7 @@ export default function Nav() {
             <div style={{
               position: 'absolute', top: 'calc(100% + 0.6rem)', right: 0,
               background: '#fff', border: `1px solid ${COLORS.border}`, borderRadius: 12,
-              boxShadow: '0 8px 20px rgba(0,0,0,0.08)', padding: '0.75rem', minWidth: 200, zIndex: 50,
+              boxShadow: '0 8px 20px rgba(0,0,0,0.08)', padding: '0.75rem', minWidth: 220, zIndex: 50,
             }}>
               {user?.email && (
                 <p style={{
@@ -209,8 +245,67 @@ export default function Nav() {
                 }}>
                   Signed in as<br /><span style={{ color: COLORS.text, fontWeight: 600 }}>{user.email}</span>
                 </p>
-
               )}
+
+              {/* Nickname editor */}
+              <div style={{ marginBottom: '0.6rem', paddingBottom: '0.6rem', borderBottom: `1px solid ${COLORS.border}` }}>
+                {editingNickname ? (
+                  <div style={{ display: 'flex', gap: '0.35rem' }}>
+                    <input
+                      value={nicknameInput}
+                      onChange={(e) => setNicknameInput(e.target.value)}
+                      autoFocus
+                      style={{
+                        flex: 1, minWidth: 0, padding: '0.35rem 0.5rem', borderRadius: 6,
+                        border: `1.5px solid ${COLORS.border}`, fontFamily: 'var(--font-manrope)',
+                        fontSize: '0.85rem', color: COLORS.text, outline: 'none',
+                      }}
+                    />
+                    <button
+                      onClick={saveNickname}
+                      disabled={savingNickname || !nicknameInput.trim()}
+                      style={{
+                        padding: '0.35rem 0.6rem', borderRadius: 6, border: 'none',
+                        background: COLORS.secondary, color: COLORS.neutral, fontSize: '0.8rem',
+                        fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-manrope)',
+                        opacity: savingNickname || !nicknameInput.trim() ? 0.6 : 1,
+                      }}
+                    >
+                      {savingNickname ? '…' : t('nav.save') || 'Save'}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setNicknameInput(displayName); setEditingNickname(true) }}
+                    style={{
+                      width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                      fontFamily: 'var(--font-manrope)', textAlign: 'left',
+                    }}
+                  >
+                    <span style={{ fontSize: '0.85rem', color: COLORS.text, fontWeight: 600 }}>
+                      {displayName || '—'}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: COLORS.secondary, textDecoration: 'underline' }}>
+                      {t('nav.editNickname') || 'Edit'}
+                    </span>
+                  </button>
+                )}
+              </div>
+
+              <Link
+                href="/group-settings"
+                onClick={() => setProfileOpen(false)}
+                style={{
+                  display: 'block', width: '100%', padding: '0.5rem 0.75rem', borderRadius: 8,
+                  color: COLORS.text, fontSize: '0.85rem', fontWeight: 600,
+                  fontFamily: 'var(--font-manrope)', textAlign: 'left', textDecoration: 'none',
+                  marginBottom: '0.25rem',
+                }}
+              >
+                Group Settings
+              </Link>
+
               <button
                 onClick={handleSignOut}
                 style={{
@@ -285,6 +380,66 @@ export default function Nav() {
                 Signed in as <span style={{ color: COLORS.text, fontWeight: 600 }}>{user.email}</span>
               </p>
             )}
+
+            {/* Nickname editor (mobile) */}
+            <div style={{ marginBottom: '0.75rem' }}>
+              {editingNickname ? (
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <input
+                    value={nicknameInput}
+                    onChange={(e) => setNicknameInput(e.target.value)}
+                    style={{
+                      flex: 1, minWidth: 0, padding: '0.5rem 0.6rem', borderRadius: 8,
+                      border: `1.5px solid ${COLORS.border}`, fontFamily: 'var(--font-manrope)',
+                      fontSize: '0.9rem', color: COLORS.text, outline: 'none',
+                    }}
+                  />
+                  <button
+                    onClick={saveNickname}
+                    disabled={savingNickname || !nicknameInput.trim()}
+                    style={{
+                      padding: '0.5rem 0.8rem', borderRadius: 8, border: 'none',
+                      background: COLORS.secondary, color: COLORS.neutral, fontSize: '0.85rem',
+                      fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-manrope)',
+                      opacity: savingNickname || !nicknameInput.trim() ? 0.6 : 1,
+                    }}
+                  >
+                    {savingNickname ? '…' : t('nav.save') || 'Save'}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setNicknameInput(displayName); setEditingNickname(true) }}
+                  style={{
+                    width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    background: 'none', border: `1.5px solid ${COLORS.border}`, borderRadius: 8,
+                    padding: '0.5rem 0.75rem', cursor: 'pointer', fontFamily: 'var(--font-manrope)',
+                  }}
+                >
+                  <span style={{ fontSize: '0.9rem', color: COLORS.text, fontWeight: 600 }}>
+                    {displayName || '—'}
+                  </span>
+                  <span style={{ fontSize: '0.8rem', color: COLORS.secondary, textDecoration: 'underline' }}>
+                    {t('nav.editNickname') || 'Edit'}
+                  </span>
+                </button>
+              )}
+            </div>
+
+            <Link
+              href="/group-settings"
+              onClick={() => setMenuOpen(false)}
+              style={{
+                display: 'block', width: '100%', padding: '0.6rem 0.9rem', borderRadius: 8,
+                border: `1.5px solid ${COLORS.border}`, background: '#fff',
+                color: COLORS.text, fontSize: '0.9rem', fontWeight: 600,
+                fontFamily: 'var(--font-manrope)', textAlign: 'left', textDecoration: 'none',
+                marginBottom: '0.6rem',
+              }}
+            >
+              Group Settings
+            </Link>
+
             <button
               onClick={handleSignOut}
               style={{

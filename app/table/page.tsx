@@ -46,21 +46,26 @@ export default function TablePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTags, setActiveTags] = useState<string[]>([])
   const [browseOpen, setBrowseOpen] = useState(false)
-  const { user } = useAuth()
+  const [groupNames, setGroupNames] = useState<string[]>([])
+  const { user, groupIds } = useAuth()
   const { t } = useTranslation()
 
    useEffect(() => {
     async function load() {
-      const [{ data: memberData }, { data: recipeData }] = await Promise.all([
-        supabase.from('table_members').select('user_id, display_name'),
+      const [{ data: memberData }, { data: recipeData }, { data: groupData }] = await Promise.all([
+        supabase.from('profiles').select('user_id, display_name'),
         supabase.from('recipes').select('id, title, image, tags, user_id, is_private').order('created_at', { ascending: false }),
+        groupIds.length > 0
+          ? supabase.from('groups').select('name').in('id', groupIds)
+          : Promise.resolve({ data: [] as { name: string }[] }),
       ])
       if (memberData) setMembers(memberData)
       if (recipeData) setRecipes(recipeData.filter((r) => !(r.is_private && r.user_id === user?.id)))
+      if (groupData) setGroupNames(groupData.map((g) => g.name))
       setLoading(false)
     }
     load()
-  }, [user])
+  }, [user, groupIds])
 
   function toggleTag(tag: string) {
     setActiveTags((prev) =>
@@ -137,7 +142,10 @@ export default function TablePage() {
           {t('nav.table')}
         </h1>
         <p style={{ color: '#6a6a6a', fontSize: '0.9rem', margin: '0 0 1.5rem' }}>
-          {t('tablePage.subtitlePrefix')} {members.map((m) => m.display_name).join(', ') || '…'}
+          {groupNames.length > 0 && (
+            <span style={{ fontWeight: 700, color: COLORS.secondary }}>{groupNames.join(', ')} — </span>
+          )}
+          {members.map((m) => m.display_name).join(', ') || '…'}
         </p>
 
         <input

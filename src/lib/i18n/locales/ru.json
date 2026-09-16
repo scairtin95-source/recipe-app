@@ -5,6 +5,8 @@
     "pantry": "Кладовая",
     "addRecipe": "Добавить рецепт",
     "logOut": "Выйти",
+    "save": "Сохранить",
+    "editNickname": "Редактировать",
     "language": "Язык",
     "home": "Главная",
     "about": "О нас"
@@ -265,7 +267,14 @@
   "password": "Пароль",
   "incorrectCredentials": "Неверный email или пароль.",
   "signingIn": "Вход…",
-  "signIn": "Войти"
+  "signIn": "Войти",
+  "createAccountTitle": "Создайте аккаунт",
+  "joinOliva": "Присоединиться к Oliva",
+  "createAccount": "Создать аккаунт",
+  "dontHaveAccount": "Нет аккаунта?",
+  "signUp": "Зарегистрироваться",
+  "alreadyHaveAccount": "Уже есть аккаунт?",
+  "checkEmailConfirm": "Проверьте почту, чтобы подтвердить аккаунт, затем войдите."
 },
 "cookingMode": {
   "stepLabel": "Шаг",
@@ -274,5 +283,32 @@
   "previous": "Назад",
   "next": "Далее",
   "done": "Готово"
+},
+"onboardingPage": {
+  "welcomeTitle": "Добро пожаловать в Oliva",
+  "subtitle": "Вы пока не состоите ни в одной группе. Создайте свою или присоединитесь по приглашению.",
+  "createGroup": "Создать группу",
+  "joinWithInvite": "Присоединиться по приглашению",
+  "groupNameLabel": "Название группы",
+  "groupNamePlaceholder": "напр. Стол Oliva",
+  "creating": "Создание…",
+  "createGroupButton": "Создать группу",
+  "inviteLabel": "Ссылка или код приглашения",
+  "invitePlaceholder": "Вставьте ссылку или код приглашения",
+  "continueButton": "Продолжить",
+  "invalidInvite": "Это не похоже на действительную ссылку или код приглашения."
+},
+"joinPage": {
+  "invitedTitle": "Вас пригласили",
+  "invitedSubtitle": "Присоединитесь к этой группе, чтобы видеть и делиться рецептами вместе.",
+  "joinGroup": "Присоединиться к группе",
+  "joining": "Присоединение…",
+  "welcomePrefix": "Добро пожаловать в",
+  "goToOliva": "Перейти в Oliva",
+  "couldntJoin": "Не удалось присоединиться",
+  "errorNotFound": "Эта ссылка приглашения недействительна.",
+  "errorExpired": "Срок действия этой ссылки приглашения истёк.",
+  "errorExhausted": "Эта ссылка приглашения уже использована максимальное число раз.",
+  "errorGeneric": "Что-то пошло не так. Попробуйте ещё раз."
 }
 }
