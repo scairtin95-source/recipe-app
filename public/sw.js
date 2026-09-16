@@ -12,24 +12,24 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Recipe detail pages and their images get cached on every successful
-// fetch, so re-opening a recipe you've already viewed still works with
-// no connection — useful mid-cook if kitchen wifi drops. Everything else
-// (recipe list, home, The Table, API calls) stays network-only: caching
-// those risks showing stale shared data, which matters more here than
-// for a single recipe page.
+// Recipe detail pages, their images, and the underlying Next.js JS/CSS
+// bundles all get cached on every successful fetch — the JS bundle is
+// needed too, since the page can't hydrate/render without it even if the
+// HTML shell itself is cached. Re-opening a recipe you've already viewed
+// works with no connection — useful mid-cook if kitchen wifi drops.
+// Everything else (recipe list, home, The Table, API calls) stays
+// network-only: caching those risks showing stale shared data.
 function isCacheable(url) {
   const isRecipeDetailPage = /\/recipes\/[^/]+$/.test(url.pathname);
   const isSupabaseStorageImage = url.hostname.endsWith('.supabase.co') && url.pathname.includes('/storage/');
-  return isRecipeDetailPage || isSupabaseStorageImage;
+  const isNextStaticAsset = url.pathname.startsWith('/_next/static/');
+  return isRecipeDetailPage || isSupabaseStorageImage || isNextStaticAsset;
 }
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   if (event.request.method !== 'GET' || !isCacheable(url)) {
-    // Unchanged behavior for everything else — network-first, cache
-    // fallback if totally offline and nothing else is available.
     event.respondWith(
       fetch(event.request).catch(() => caches.match(event.request))
     );
