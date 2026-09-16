@@ -20,6 +20,7 @@ interface Recipe {
   ingredients: string | null
   image: string | null
   tags: string | null
+  created_at?: string
 }
 
 function decodeHtmlEntities(text: string | null): string {
@@ -68,9 +69,15 @@ export default function Home() {
 
   useEffect(() => {
     async function load() {
+      // Logged in: RLS returns the user's own + group-shared recipes.
+      // Logged out: RLS's select_showcase_recipes policy limits this to
+      // only the handful of recipes explicitly flagged is_showcase = true.
+      // created_at is fetched too so the logged-in default view can show
+      // a small "Recently added" set instead of dumping the whole library.
       const { data: recipeData } = await supabase
         .from('recipes')
-        .select('id, title, ingredients, image, tags')
+        .select('id, title, ingredients, image, tags, created_at')
+        .order('created_at', { ascending: false })
 
       if (recipeData) setRecipes(recipeData)
       setIsLoading(false)
@@ -104,7 +111,16 @@ export default function Home() {
     setCravingResults(null)
   }
 
-  const displayedRecipes = cravingResults !== null ? cravingResults : recipes
+  // Logged in with no active search: show a small recent set, not the
+  // whole library (that's what /recipes is for). Logged out: RLS already
+  // caps this to the handful of showcase recipes, so show all of those.
+  const RECENT_COUNT = 6
+  const showingRecent = !!user && cravingResults === null
+  const displayedRecipes = cravingResults !== null
+    ? cravingResults
+    : showingRecent
+      ? recipes.slice(0, RECENT_COUNT)
+      : recipes
 
   return (
     <div style={{ minHeight: '100vh', background: COLORS.neutral, fontFamily: 'var(--font-manrope)' }}>
@@ -196,6 +212,17 @@ export default function Home() {
             }}>
               {t('homePage.clear')}
             </button>
+          </div>
+        )}
+
+        {showingRecent && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.25rem' }}>
+            <h2 style={{ fontFamily: 'var(--font-newsreader)', fontSize: '1.5rem', fontWeight: 700, color: '#2c2c2c', margin: 0 }}>
+              {t('homePage.recentlyAdded')}
+            </h2>
+            <Link href="/recipes" style={{ fontSize: '0.85rem', color: COLORS.primary, textDecoration: 'none', fontWeight: 600 }}>
+              {t('homePage.viewAll')}
+            </Link>
           </div>
         )}
 

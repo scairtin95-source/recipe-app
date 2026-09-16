@@ -155,6 +155,7 @@
 },
 "homePage": {
   "signInPrompt": "Sign in to see your full recipe collection and add your own.",
+  "recentlyAdded": "Recently added",
   "cravingTitle": "What are we craving today?",
   "cravingSubtitle": "Tell me what you're in the mood for, or just let me suggest something based on what's in your pantry.",
   "cravingPlaceholder": "e.g., A quick pasta dish with tomatoes…",

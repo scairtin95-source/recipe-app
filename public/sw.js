@@ -1,18 +1,50 @@
-const CACHE_NAME = 'oliva-cache-v1';
+const CACHE_NAME = 'oliva-cache-v2';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
 });
 
-// Network-first passthrough. This satisfies PWA installability
-// requirements today; real offline support (caching pages/assets so the
-// app works with no connection) is a good follow-up, not built here yet.
+// Recipe detail pages and their images get cached on every successful
+// fetch, so re-opening a recipe you've already viewed still works with
+// no connection — useful mid-cook if kitchen wifi drops. Everything else
+// (recipe list, home, The Table, API calls) stays network-only: caching
+// those risks showing stale shared data, which matters more here than
+// for a single recipe page.
+function isCacheable(url) {
+  const isRecipeDetailPage = /\/recipes\/[^/]+$/.test(url.pathname);
+  const isSupabaseStorageImage = url.hostname.endsWith('.supabase.co') && url.pathname.includes('/storage/');
+  return isRecipeDetailPage || isSupabaseStorageImage;
+}
+
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  if (event.request.method !== 'GET' || !isCacheable(url)) {
+    // Unchanged behavior for everything else — network-first, cache
+    // fallback if totally offline and nothing else is available.
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
