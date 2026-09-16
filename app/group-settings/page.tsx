@@ -25,7 +25,7 @@ interface MemberRow {
 }
 
 export default function GroupSettingsPage() {
-  const { user, groupIds } = useAuth()
+  const { user, groupIds, refreshGroups } = useAuth()
 
   const [groups, setGroups] = useState<GroupRow[]>([])
   const [selectedGroupId, setSelectedGroupId] = useState<string>('')
@@ -36,6 +36,12 @@ export default function GroupSettingsPage() {
   const [inviteLink, setInviteLink] = useState('')
   const [creatingInvite, setCreatingInvite] = useState(false)
   const [copied, setCopied] = useState(false)
+
+  const [removingId, setRemovingId] = useState<string | null>(null)
+  const [creatingGroup, setCreatingGroup] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [createGroupError, setCreateGroupError] = useState('')
 
   useEffect(() => {
     if (!user?.id || groupIds.length === 0) return
@@ -109,6 +115,56 @@ export default function GroupSettingsPage() {
     if (!error) {
       setGroups((prev) => prev.map((g) => g.id === selectedGroupId ? { ...g, name: nameInput.trim() } : g))
     }
+  }
+
+  async function handleRemoveMember(userId: string) {
+    if (!selectedGroupId) return
+    if (!window.confirm('Remove this person from the group? They will lose access to shared recipes they haven\'t saved a copy of.')) return
+    setRemovingId(userId)
+    const { error } = await supabase
+      .from('group_members')
+      .delete()
+      .eq('group_id', selectedGroupId)
+      .eq('user_id', userId)
+    setRemovingId(null)
+    if (!error) {
+      setMembers((prev) => prev.filter((m) => m.user_id !== userId))
+    }
+  }
+
+  async function handleCreateGroup() {
+    if (!user?.id || !newGroupName.trim()) return
+    setCreatingGroup(true)
+    setCreateGroupError('')
+
+    const { data: group, error: groupError } = await supabase
+      .from('groups')
+      .insert({ name: newGroupName.trim(), created_by: user.id })
+      .select('id')
+      .single()
+
+    if (groupError || !group) {
+      setCreateGroupError(groupError?.message || 'Something went wrong creating the group.')
+      setCreatingGroup(false)
+      return
+    }
+
+    const { error: memberError } = await supabase
+      .from('group_members')
+      .insert({ group_id: group.id, user_id: user.id, role: 'owner' })
+
+    if (memberError) {
+      setCreateGroupError(memberError.message)
+      setCreatingGroup(false)
+      return
+    }
+
+    await refreshGroups()
+    setGroups((prev) => [...prev, { id: group.id, name: newGroupName.trim(), role: 'owner' }])
+    setSelectedGroupId(group.id)
+    setNewGroupName('')
+    setShowCreateForm(false)
+    setCreatingGroup(false)
   }
 
   async function handleCreateInvite() {
@@ -213,14 +269,31 @@ export default function GroupSettingsPage() {
             Members
           </label>
           {members.map((m) => (
-            <p key={m.user_id} style={{ fontSize: '0.9rem', color: COLORS.text, margin: '0.3rem 0' }}>
-              {m.display_name}
-            </p>
+            <div key={m.user_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0.3rem 0' }}>
+              <p style={{ fontSize: '0.9rem', color: COLORS.text, margin: 0 }}>
+                {m.display_name}
+              </p>
+              {isOwner && m.user_id !== user?.id && (
+                <button
+                  onClick={() => handleRemoveMember(m.user_id)}
+                  disabled={removingId === m.user_id}
+                  style={{
+                    padding: '0.3rem 0.7rem', borderRadius: 6, border: `1px solid ${COLORS.primary}`,
+                    background: 'transparent', color: COLORS.primary,
+                    fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer',
+                    fontFamily: 'var(--font-manrope)',
+                    opacity: removingId === m.user_id ? 0.5 : 1,
+                  }}
+                >
+                  {removingId === m.user_id ? '…' : 'Remove'}
+                </button>
+              )}
+            </div>
           ))}
         </div>
 
         {isOwner && (
-          <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${COLORS.border}`, padding: '1.5rem' }}>
+          <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${COLORS.border}`, padding: '1.5rem', marginBottom: '1.25rem' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: COLORS.tertiary, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.5rem' }}>
               Invite someone
             </label>
@@ -264,6 +337,70 @@ export default function GroupSettingsPage() {
             )}
           </div>
         )}
+
+        <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${COLORS.border}`, padding: '1.5rem' }}>
+          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: COLORS.tertiary, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.5rem' }}>
+            Start a new group
+          </label>
+          {!showCreateForm ? (
+            <button
+              onClick={() => setShowCreateForm(true)}
+              style={{
+                padding: '0.6rem 1.2rem', borderRadius: 8, border: `1.5px solid ${COLORS.border}`,
+                background: '#fff', color: COLORS.text,
+                fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer',
+                fontFamily: 'var(--font-manrope)',
+              }}
+            >
+              Create a new group
+            </button>
+          ) : (
+            <div>
+              <input
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="e.g. Weekend Brunch Club"
+                autoFocus
+                style={{
+                  width: '100%', padding: '0.6rem 0.8rem', borderRadius: 8,
+                  border: `1.5px solid ${COLORS.border}`, fontSize: '0.9rem',
+                  fontFamily: 'var(--font-manrope)', color: COLORS.text,
+                  boxSizing: 'border-box', marginBottom: '0.75rem',
+                }}
+              />
+              {createGroupError && (
+                <p style={{ color: COLORS.primary, fontSize: '0.8rem', margin: '0 0 0.75rem' }}>{createGroupError}</p>
+              )}
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  onClick={() => { setShowCreateForm(false); setNewGroupName(''); setCreateGroupError('') }}
+                  style={{
+                    flex: 1, padding: '0.6rem 1rem', borderRadius: 8,
+                    border: `1.5px solid ${COLORS.border}`, background: '#fff',
+                    color: COLORS.text, fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
+                    fontFamily: 'var(--font-manrope)',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateGroup}
+                  disabled={creatingGroup || !newGroupName.trim()}
+                  style={{
+                    flex: 1, padding: '0.6rem 1rem', borderRadius: 8, border: 'none',
+                    background: COLORS.secondary, color: COLORS.neutral,
+                    fontSize: '0.85rem', fontWeight: 600,
+                    cursor: creatingGroup || !newGroupName.trim() ? 'default' : 'pointer',
+                    opacity: creatingGroup || !newGroupName.trim() ? 0.6 : 1,
+                    fontFamily: 'var(--font-manrope)',
+                  }}
+                >
+                  {creatingGroup ? 'Creating…' : 'Create'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   )
