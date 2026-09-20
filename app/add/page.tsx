@@ -18,6 +18,69 @@ interface StructuredIngredient {
   unit: string | null
   item: string
   raw: string
+  gramsPerUnit?: number | null
+}
+
+type IngredientEntry = StructuredIngredient | string
+
+function isStructuredEntry(entry: IngredientEntry): entry is StructuredIngredient {
+  return typeof entry === 'object' && entry !== null && 'item' in entry
+}
+
+interface EditIngredientRow {
+  id: string
+  quantity: string
+  unit: string
+  item: string
+  gramsPerUnit: number | null
+}
+
+let rowIdCounter = 0
+function newRowId(): string {
+  rowIdCounter += 1
+  return `row-${Date.now()}-${rowIdCounter}`
+}
+
+function ingredientToRow(entry: IngredientEntry): EditIngredientRow {
+  if (isStructuredEntry(entry)) {
+    return {
+      id: newRowId(),
+      quantity: entry.quantity !== null ? String(entry.quantity) : '',
+      unit: entry.unit ?? '',
+      item: entry.item,
+      gramsPerUnit: entry.gramsPerUnit ?? null,
+    }
+  }
+  return { id: newRowId(), quantity: '', unit: '', item: entry, gramsPerUnit: null }
+}
+
+function rowsToIngredients(rows: EditIngredientRow[]): IngredientEntry[] {
+  return rows
+    .filter((row) => row.item.trim() !== '')
+    .map((row): IngredientEntry => {
+      const trimmedQty = row.quantity.trim()
+      const qtyNum = trimmedQty === '' ? NaN : parseFloat(trimmedQty)
+      const unit = row.unit.trim() || null
+      const item = row.item.trim()
+
+      if (trimmedQty !== '' && !isNaN(qtyNum)) {
+        const raw = `${trimmedQty}${unit ? ' ' + unit : ''} ${item}`.trim()
+        return { quantity: qtyNum, unit, item, raw, gramsPerUnit: row.gramsPerUnit }
+      }
+      return item
+    })
+}
+
+// Formats structured ingredients (or plain strings) into readable
+// "quantity unit item" lines for the preview card and pantry extraction.
+function formatIngredientLines(entries: IngredientEntry[]): string[] {
+  return entries.map((entry) => {
+    if (typeof entry === 'string') return entry
+    if (entry.quantity !== null && entry.unit) {
+      return `${entry.quantity} ${entry.unit} ${entry.item}`.trim()
+    }
+    return entry.raw || entry.item || ''
+  }).filter(Boolean)
 }
 
 function parseList(raw: any): string[] {
@@ -29,18 +92,6 @@ function parseList(raw: any): string[] {
     if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean)
   } catch {}
   return raw.split('\n').map(s => s.trim()).filter(Boolean)
-}
-
-// Formats structured ingredients (or plain strings) into readable
-// "quantity unit item" lines for the preview card and the editable textarea.
-function formatIngredientLines(entries: StructuredIngredient[] | string[]): string[] {
-  return entries.map((entry) => {
-    if (typeof entry === 'string') return entry
-    if (entry.quantity !== null && entry.unit) {
-      return `${entry.quantity} ${entry.unit} ${entry.item}`.trim()
-    }
-    return entry.raw || entry.item || ''
-  }).filter(Boolean)
 }
 
 function tagList(tags: string): string[] {
@@ -86,16 +137,11 @@ export default function Home() {
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
 
-  // structuredIngredients holds the parser's { quantity, unit, item, raw }
-  // objects, kept intact for saving so the recipe detail page's unit-aware
-  // conversion works. ingredientsText is the editable plain-text mirror
-  // shown in the manual-edit textarea. If the person edits that text by
-  // hand, ingredientsEdited flips true and the save falls back to a plain
-  // string array (same format legacy recipes already use) rather than
-  // trying to guess new quantity/unit splits from freehand edits.
-  const [structuredIngredients, setStructuredIngredients] = useState<StructuredIngredient[] | null>(null)
-  const [ingredientsText, setIngredientsText] = useState('')
-  const [ingredientsEdited, setIngredientsEdited] = useState(false)
+  // Ingredients are now always structured rows (Qty / Unit / Ingredient),
+  // matching the recipe detail page's edit form — both a URL parse and
+  // manual entry populate the same row editor, so there's no separate
+  // "freeform text" fallback path anymore.
+  const [ingredientRows, setIngredientRows] = useState<EditIngredientRow[]>([])
 
   const [steps, setSteps] = useState('')
   const [tags, setTags] = useState('')
@@ -114,8 +160,6 @@ export default function Home() {
   const [uploadingImage, setUploadingImage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // If we arrived here via the share-sheet (?url=...), pre-fill and
-  // auto-parse — the whole point of sharing is skipping manual entry.
   useEffect(() => {
     const sharedUrl = searchParams.get('url')
     if (sharedUrl) {
@@ -132,21 +176,36 @@ export default function Home() {
 
   const resetAll = () => {
     setUrl(''); setTitle('')
-    setStructuredIngredients(null); setIngredientsText(''); setIngredientsEdited(false)
+    setIngredientRows([])
     setSteps(''); setTags(''); setImage('')
     setPrepTimeMinutes(null); setCookTimeMinutes(null); setTotalTimeMinutes(null); setServings(null)
     setMessage(''); setIsError(false)
     setMode('input')
   }
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const addIngredientRow = () => {
+    setIngredientRows((prev) => [
+      ...prev,
+      { id: newRowId(), quantity: '', unit: '', item: '', gramsPerUnit: null },
+    ])
+  }
+
+  const removeIngredientRow = (rowId: string) => {
+    setIngredientRows((prev) => prev.filter((r) => r.id !== rowId))
+  }
+
+  const updateIngredientRow = (rowId: string, patch: Partial<EditIngredientRow>) => {
+    setIngredientRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, ...patch } : r)))
+  }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
     setUploadingImage(true)
-    const url = await uploadImageFile(file, 'new-recipe')
-    if (url) {
-      setImage(url)
+    const uploadedUrl = await uploadImageFile(file, 'new-recipe')
+    if (uploadedUrl) {
+      setImage(uploadedUrl)
     } else {
       setMessage(t('addRecipePage.uploadFailedAlert'))
       setIsError(true)
@@ -165,9 +224,7 @@ export default function Home() {
     const data = await res.json()
     if (data.title) setTitle(data.title)
     if (Array.isArray(data.ingredients)) {
-      setStructuredIngredients(data.ingredients)
-      setIngredientsText(formatIngredientLines(data.ingredients).join('\n'))
-      setIngredientsEdited(false)
+      setIngredientRows(data.ingredients.map(ingredientToRow))
     }
     if (Array.isArray(data.steps)) setSteps(data.steps.join('\n'))
     if (data.image) setImage(data.image)
@@ -180,8 +237,6 @@ export default function Home() {
     setParsing(false)
     if (data.title) setMode('preview')
 
-    // Auto-suggest tags in the background — never blocks the preview from
-    // showing, and failure just leaves tags empty for manual entry.
     if (data.title && Array.isArray(data.ingredients)) {
       const ingredientLines = formatIngredientLines(data.ingredients).join('\n')
       fetch('/api/suggest-tags', {
@@ -202,19 +257,13 @@ export default function Home() {
     if (!user) { setMessage(t('addRecipePage.loginRequiredError')); setIsError(true); return }
     setSaving(true)
 
-    // Use the parser's structured data as-is if the ingredients text
-    // hasn't been hand-edited; otherwise save whatever's in the textarea
-    // as a plain string array (legacy-compatible format).
-    const ingredientsToSave =
-      structuredIngredients && !ingredientsEdited
-        ? JSON.stringify(structuredIngredients)
-        : JSON.stringify(parseList(ingredientsText))
+    const ingredientsToSave = rowsToIngredients(ingredientRows)
 
     const { error } = await supabase
       .from('recipes')
       .insert([{
         title,
-        ingredients: ingredientsToSave,
+        ingredients: JSON.stringify(ingredientsToSave),
         steps,
         tags,
         source_url: url,
@@ -230,7 +279,7 @@ export default function Home() {
       setIsError(true)
       setSaving(false)
     } else {
-      addIngredientsToPantry(ingredientsText)
+      addIngredientsToPantry(formatIngredientLines(ingredientsToSave).join('\n'))
       resetAll()
       setMessage(t('addRecipePage.recipeSaved'))
       setIsError(false)
@@ -253,9 +302,6 @@ export default function Home() {
       const items = json.items || []
       if (items.length === 0) return
 
-      // RLS already scopes this select to the current user's own pantry
-      // rows, so the dedup check below only ever compares against items
-      // this same user has already logged.
       const { data: existing } = await supabase.from('pantry_items').select('name')
       const existingNames = new Set(
         (existing || []).map((i: any) => i.name.trim().toLowerCase())
@@ -288,10 +334,7 @@ export default function Home() {
     width: '100%', boxSizing: 'border-box' as const
   }
 
-  const ingredientPreview =
-    structuredIngredients && !ingredientsEdited
-      ? formatIngredientLines(structuredIngredients)
-      : parseList(ingredientsText)
+  const ingredientPreview = formatIngredientLines(rowsToIngredients(ingredientRows))
   const previewTags = tagList(tags)
 
   const minLabel = t('recipeDetail.minutesShort')
@@ -546,16 +589,57 @@ export default function Home() {
               <label style={{ fontSize: '0.8rem', fontWeight: 600, color: COLORS.tertiary, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: '0.4rem' }}>
                 {t('addRecipePage.ingredientsLabel')}
               </label>
-              <textarea
-                placeholder={t('addRecipePage.ingredientsTextPlaceholder')} value={ingredientsText}
-                onChange={(e) => { setIngredientsText(e.target.value); setIngredientsEdited(true) }}
-                rows={6} style={{ ...inputStyle, resize: 'vertical' as const }}
-              />
-              {structuredIngredients && !ingredientsEdited && (
-                <p style={{ fontSize: '0.75rem', color: '#8a8378', margin: '0.4rem 0 0' }}>
-                  {t('addRecipePage.autoParsedNote')}
-                </p>
-              )}
+
+              <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.35rem', padding: '0 0.1rem' }}>
+                <span style={{ width: 55, fontSize: '0.65rem', fontWeight: 700, color: '#8a8378', textTransform: 'uppercase' }}>{t('recipeDetail.qtyColumn')}</span>
+                <span style={{ width: 70, fontSize: '0.65rem', fontWeight: 700, color: '#8a8378', textTransform: 'uppercase' }}>{t('recipeDetail.unitColumn')}</span>
+                <span style={{ flex: 1, fontSize: '0.65rem', fontWeight: 700, color: '#8a8378', textTransform: 'uppercase' }}>{t('recipeDetail.ingredientColumn')}</span>
+              </div>
+
+              {ingredientRows.map((row) => (
+                <div key={row.id} style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="number" step="any" placeholder={t('recipeDetail.qtyPlaceholder')}
+                    value={row.quantity}
+                    onChange={(e) => updateIngredientRow(row.id, { quantity: e.target.value })}
+                    style={{ ...inputStyle, width: 55, padding: '0.4rem 0.5rem' }}
+                  />
+                  <input
+                    type="text" placeholder={t('recipeDetail.unitPlaceholder')}
+                    value={row.unit}
+                    onChange={(e) => updateIngredientRow(row.id, { unit: e.target.value })}
+                    style={{ ...inputStyle, width: 70, padding: '0.4rem 0.5rem' }}
+                  />
+                  <input
+                    type="text" placeholder={t('recipeDetail.ingredientPlaceholder')}
+                    value={row.item}
+                    onChange={(e) => updateIngredientRow(row.id, { item: e.target.value })}
+                    style={{ ...inputStyle, flex: 1, minWidth: 0, padding: '0.4rem 0.5rem' }}
+                  />
+                  <button
+                    onClick={() => removeIngredientRow(row.id)}
+                    title={t('recipeDetail.removeIngredient')}
+                    style={{
+                      flexShrink: 0, width: 28, height: 28, borderRadius: 6, border: '1.5px solid #e5ddd3',
+                      background: '#fff', color: COLORS.primary, fontSize: '0.9rem', fontWeight: 600,
+                      cursor: 'pointer', lineHeight: 1
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+
+              <button
+                onClick={addIngredientRow}
+                style={{
+                  marginTop: '0.25rem', padding: '0.4rem 0.8rem', borderRadius: 8, border: '1.5px dashed #d8cfc0',
+                  background: 'transparent', color: COLORS.secondary, fontSize: '0.8rem', fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'var(--font-manrope)'
+                }}
+              >
+                + {t('recipeDetail.addIngredient')}
+              </button>
             </div>
 
             <div>

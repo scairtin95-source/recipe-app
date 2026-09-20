@@ -21,9 +21,6 @@ export default function CollectionsPage() {
   const [collections, setCollections] = useState<Collection[]>([])
   const [counts, setCounts] = useState<Record<number, number>>({})
   const [isLoading, setIsLoading] = useState(true)
-  const [newName, setNewName] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [showForm, setShowForm] = useState(false)
 
   async function loadCollections() {
     setIsLoading(true)
@@ -53,79 +50,24 @@ export default function CollectionsPage() {
     loadCollections()
   }, [])
 
-  async function createCollection() {
-    if (!newName.trim()) return
-    setCreating(true)
-    const { error } = await supabase.from('collections').insert([{ name: newName.trim() }])
-    if (!error) {
-      setNewName('')
-      setShowForm(false)
-      await loadCollections()
-    }
-    setCreating(false)
-  }
-
   return (
     <div style={{ minHeight: '100vh', background: COLORS.neutral, fontFamily: 'var(--font-manrope)' }}>
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: '2.5rem 1rem' }}>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <div style={{ marginBottom: '2rem' }}>
           <h1 style={{
             fontSize: '2rem', fontWeight: 600, color: '#2c2c2c', margin: 0,
             fontFamily: 'var(--font-newsreader)'
           }}>
             Collections
           </h1>
-          <button
-            onClick={() => setShowForm((s) => !s)}
-            style={{
-              background: COLORS.primary, color: '#fff',
-              padding: '0.55rem 1.3rem', borderRadius: 999,
-              border: 'none', fontSize: '0.9rem', fontWeight: 600,
-              cursor: 'pointer', fontFamily: 'var(--font-manrope)'
-            }}
-          >
-            + New Collection
-          </button>
         </div>
-
-        {showForm && (
-          <div style={{
-            display: 'flex', gap: '0.75rem', marginBottom: '2rem',
-            background: '#fff', padding: '1rem', borderRadius: 14, border: '1px solid #eee3d8'
-          }}>
-            <input
-              type="text"
-              placeholder="Collection name — e.g. Summer BBQ"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && createCollection()}
-              style={{
-                flex: 1, padding: '0.65rem 1rem', fontSize: '0.95rem',
-                border: '1.5px solid #e5ddd3', borderRadius: 10,
-                outline: 'none', fontFamily: 'var(--font-manrope)'
-              }}
-            />
-            <button
-              onClick={createCollection}
-              disabled={creating}
-              style={{
-                padding: '0.65rem 1.3rem', borderRadius: 10, border: 'none',
-                background: COLORS.secondary, color: '#fff', fontWeight: 600,
-                cursor: 'pointer', fontFamily: 'var(--font-manrope)',
-                opacity: creating ? 0.7 : 1
-              }}
-            >
-              {creating ? 'Creating…' : 'Create'}
-            </button>
-          </div>
-        )}
 
         {isLoading && <p style={{ color: '#8a8378', textAlign: 'center', padding: '3rem' }}>Loading collections…</p>}
 
         {!isLoading && collections.length === 0 && (
           <p style={{ color: '#8a8378', textAlign: 'center', padding: '3rem' }}>
-            No collections yet. Create your first one above.
+            No collections yet.
           </p>
         )}
 
