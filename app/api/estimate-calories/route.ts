@@ -136,6 +136,7 @@ async function lookupNutrientsPer100g(item: string): Promise<NutrientsPer100g | 
 
     const json = await res.json()
     const foods = Array.isArray(json.foods) ? json.foods : []
+    console.log(`USDA search "${item}": ${foods.length} results`, foods[0]?.description ?? '(none)')
     if (foods.length === 0) return null
 
     // Use the first result — USDA's search already ranks by relevance.
@@ -147,7 +148,10 @@ async function lookupNutrientsPer100g(item: string): Promise<NutrientsPer100g | 
     const fatG = findNutrientValue(nutrients, 'Total lipid (fat)')
     const carbsG = findNutrientValue(nutrients, 'Carbohydrate, by difference')
 
-    if (calories === null) return null // calories is the minimum bar for a "match"
+    if (calories === null) {
+      console.log(`USDA match for "${item}" had no calorie data`, foods[0]?.description)
+      return null
+    }
 
     return { calories, proteinG, fatG, carbsG }
   } catch (err) {
