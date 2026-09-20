@@ -132,7 +132,10 @@ async function lookupNutrientsPer100g(item: string): Promise<NutrientsPer100g | 
     const res = await fetch(`${USDA_SEARCH_URL}?${params.toString()}`, {
       signal: AbortSignal.timeout(8000),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.log(`USDA request for "${item}" failed: ${res.status} ${res.statusText}`)
+      return null
+    }
 
     const json = await res.json()
     const foods = Array.isArray(json.foods) ? json.foods : []
